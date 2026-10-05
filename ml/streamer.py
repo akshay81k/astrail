@@ -57,6 +57,8 @@ def stream_data():
                 )
                 if res.status_code != 200:
                     print(f"Error {res.status_code}: {res.text}")
+                else:
+                    print(f"Sent row {i} to API...")
             except Exception as e:
                 print(f"Connection failed: {e}")
                 
