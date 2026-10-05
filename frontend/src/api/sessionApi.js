@@ -24,5 +24,8 @@ export const sessionApi = {
 
   getSensors: (id) => apiClient.get(`/sessions/${id}/sensors`),
 
+  getComparison: (id) => apiClient.get(`/sessions/${id}/comparison`),
+
   deleteSession: (id) => apiClient.delete(`/sessions/${id}`)
 };
+

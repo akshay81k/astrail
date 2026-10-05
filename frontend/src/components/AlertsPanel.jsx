@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTelemetry } from '../context/TelemetryContext';
 import { Bell, Thermometer, Sun, Info, ChevronRight } from 'lucide-react';
 
 const alertItems = [
   {
     id: 'alert-1',
+    incidentId: '014',
     severity: 'CRITICAL',
     time: '02:11:08',
     title: 'Thermal anomaly',
@@ -14,6 +16,7 @@ const alertItems = [
   },
   {
     id: 'alert-2',
+    incidentId: '014',
     severity: 'WARNING',
     time: '02:09:40',
     title: 'Solar current dropping',
@@ -23,6 +26,7 @@ const alertItems = [
   },
   {
     id: 'alert-3',
+    incidentId: '014',
     severity: 'INFO',
     time: '01:58:12',
     title: 'Sensor 3 delayed',
@@ -33,10 +37,12 @@ const alertItems = [
 ];
 
 export default function AlertsPanel() {
+  const navigate = useNavigate();
   const { activeAlertId, setActiveAlertId } = useTelemetry();
 
-  const handleAlertClick = (id) => {
-    setActiveAlertId(activeAlertId === id ? null : id);
+  const handleAlertClick = (item) => {
+    setActiveAlertId(item.id);
+    navigate(`/incidents/${item.incidentId || '014'}`);
   };
 
   return (
@@ -46,7 +52,7 @@ export default function AlertsPanel() {
           <Bell size={18} className="icon-bell text-red" />
           <h2 className="section-title">ALERTS</h2>
         </div>
-        <button className="btn-view-all">
+        <button className="btn-view-all" onClick={() => navigate('/incidents/014')}>
           View All <ChevronRight size={14} />
         </button>
       </div>
@@ -58,7 +64,7 @@ export default function AlertsPanel() {
           return (
             <div
               key={item.id}
-              onClick={() => handleAlertClick(item.id)}
+              onClick={() => handleAlertClick(item)}
               className={`alert-card alert-${item.colorClass} ${isSelected ? 'selected' : ''}`}
             >
               <div className={`alert-icon-box bg-${item.colorClass}`}>
@@ -84,3 +90,4 @@ export default function AlertsPanel() {
     </div>
   );
 }
+

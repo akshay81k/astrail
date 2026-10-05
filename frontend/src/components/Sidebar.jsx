@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   LineChart,
@@ -6,22 +7,32 @@ import {
   AlertTriangle,
   BarChart3,
   Terminal,
+  Wrench,
   FileText,
   Settings,
   Satellite
 } from 'lucide-react';
 
 const navItems = [
-  { id: 'mission-control', label: 'Mission Control', icon: LayoutDashboard, active: true },
-  { id: 'telemetry', label: 'Telemetry', icon: LineChart },
-  { id: 'subsystems', label: 'Subsystems', icon: SlidersHorizontal },
-  { id: 'incidents', label: 'Incidents', icon: AlertTriangle },
-  { id: 'analysis', label: 'Analysis', icon: BarChart3 },
-  { id: 'simulator', label: 'Simulator', icon: Terminal },
-  { id: 'reports', label: 'Reports', icon: FileText }
+  { id: 'mission-control', label: 'Mission Control', icon: LayoutDashboard, path: '/' },
+  { id: 'telemetry', label: 'Telemetry', icon: LineChart, path: '/' },
+  { id: 'subsystems', label: 'Subsystems', icon: SlidersHorizontal, path: '/' },
+  { id: 'incidents', label: 'Incidents', icon: AlertTriangle, path: '/incidents' },
+  { id: 'analysis', label: 'Analysis', icon: BarChart3, path: '/analysis/comparison' },
+  { id: 'simulator', label: 'Simulator', icon: Terminal, path: '/' },
+  { id: 'fault-injection', label: 'Fault Injection', icon: Wrench, path: '/fault-injection' },
+  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports' }
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isIncidentsActive = location.pathname.startsWith('/incidents');
+  const isFaultActive = location.pathname.startsWith('/fault-injection') || location.pathname.startsWith('/simulator/fault-injection');
+  const isAnalysisActive = location.pathname.startsWith('/analysis');
+  const isReportsActive = location.pathname.startsWith('/reports') || location.pathname.startsWith('/evaluation');
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -37,10 +48,18 @@ export default function Sidebar() {
       <nav className="sidebar-nav">
         {navItems.map((item) => {
           const Icon = item.icon;
+          let isActive = false;
+          if (item.id === 'incidents') isActive = isIncidentsActive;
+          else if (item.id === 'fault-injection') isActive = isFaultActive;
+          else if (item.id === 'analysis') isActive = isAnalysisActive;
+          else if (item.id === 'reports') isActive = isReportsActive;
+          else if (item.id === 'mission-control') isActive = location.pathname === '/';
+
           return (
             <button
               key={item.id}
-              className={`nav-item ${item.active ? 'active' : ''}`}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => navigate(item.path)}
             >
               <Icon size={18} className="nav-icon" />
               <span className="nav-label">{item.label}</span>
@@ -68,3 +87,7 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+
+
+
