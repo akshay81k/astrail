@@ -21,3 +21,15 @@ build/
 backend/node_modules/
 frontend/node_modules/
 
+# Machine Learning & Data
+data/
+ml/data/
+ml/artifacts/*.safetensors
+ml/artifacts/*.pkl
+ml/artifacts/*.json
+!ml/artifacts/manifest.json
+ml/.pytest_cache/
+ml/.ruff_cache/
+*.pt
+*.pth
+*.safetensors

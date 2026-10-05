@@ -1,0 +1,8 @@
+data_root: "../data"
+seeds:
+  global: 42
+  numpy: 42
+  torch: 42
+window_size: 100
+alpha: 0.05
+persistence_n: 5
