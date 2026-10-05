@@ -1,0 +1,10 @@
+subsystem,signal,trigger,risk,recommended_action
+POWER,power_bus_voltage_V,<25.0 or >31.0,HIGH,Check EPS regulation; reduce nonessential loads
+POWER,battery_soc_pct,<55,HIGH,Enter power-conservation policy and inspect battery
+THERMAL,eps_temperature_C,>32,HIGH,Reduce load and inspect thermal control
+THERMAL,battery_temperature_C,>30,HIGH,Reduce charge/discharge stress; inspect thermal path
+ATTITUDE,reaction_wheel_speed_rpm,>2600 or <1000,HIGH,Check wheel health and attitude-control margin
+COMMUNICATIONS,packet_loss_pct,>5,MEDIUM,Switch/verify communication path and prioritize critical packets
+COMPUTE,cpu_utilization_pct,>85,HIGH,Throttle noncritical workloads and inspect upset/recovery state
+RADIATION,radiation_rate_counts_s,>20,HIGH,Enter radiation-aware mode and check compute faults
+PAYLOAD,payload_power_W,>75,MEDIUM,Reduce payload duty cycle and inspect load request

@@ -1,0 +1,24 @@
+signal,subsystem,unit,description
+power_bus_voltage_V,POWER,V,bus voltage
+power_bus_current_A,POWER,A,bus current
+solar_array_current_A,POWER,A,solar array current
+battery_soc_pct,POWER,%,battery state of charge
+battery_temperature_C,THERMAL,C,battery temperature
+eps_temperature_C,THERMAL,C,electrical power subsystem temperature
+payload_temperature_C,THERMAL,C,payload temperature
+radiator_temperature_C,THERMAL,C,radiator temperature
+imu_accel_x_mps2,ATTITUDE,m/s^2,IMU acceleration X
+imu_accel_y_mps2,ATTITUDE,m/s^2,IMU acceleration Y
+imu_accel_z_mps2,ATTITUDE,m/s^2,IMU acceleration Z
+gyro_x_deg_s,ATTITUDE,deg/s,gyro X
+gyro_y_deg_s,ATTITUDE,deg/s,gyro Y
+gyro_z_deg_s,ATTITUDE,deg/s,gyro Z
+reaction_wheel_speed_rpm,ATTITUDE,rpm,reaction wheel speed
+comm_rx_dbm,COMMUNICATIONS,dBm,receive signal strength
+comm_tx_dbm,COMMUNICATIONS,dBm,transmit power proxy
+packet_loss_pct,COMMUNICATIONS,%,packet loss
+cpu_utilization_pct,COMPUTE,%,CPU utilization
+memory_utilization_pct,COMPUTE,%,memory utilization
+radiation_rate_counts_s,RADIATION,counts/s,radiation count rate
+payload_power_W,PAYLOAD,W,payload power
+data_queue_MB,PAYLOAD,MB,queued payload data

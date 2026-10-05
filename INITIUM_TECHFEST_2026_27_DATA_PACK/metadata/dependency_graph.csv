@@ -1,0 +1,10 @@
+source_subsystem,target_subsystem,engineering_rationale
+POWER,THERMAL,battery/power dissipation can alter temperatures
+POWER,PAYLOAD,available bus power constrains payload load
+POWER,COMPUTE,voltage/current instability can affect compute
+THERMAL,POWER,thermal stress can increase power draw
+ATTITUDE,POWER,wheel/actuator load changes power consumption
+COMMUNICATIONS,COMPUTE,link degradation can increase buffering/processing
+RADIATION,COMPUTE,radiation upsets can raise compute error/load
+PAYLOAD,POWER,payload demand changes bus current
+ATTITUDE,THERMAL,actuator activity can change dissipated heat
