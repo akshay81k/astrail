@@ -10,9 +10,9 @@ export default function AnomalyScoreChart() {
   const timestamps = telemetryData.map((d) => d.timestamp);
   const scoreValues = telemetryData.map((d) => d.anomalyScore);
 
-  const anomalyIndex = telemetryData.findIndex(
-    (d) => d.timestamp === '02:11:08' || d.isAnomalyPeak
-  );
+  const anomalyIndex = telemetryData.findLastIndex
+    ? telemetryData.findLastIndex((d) => d.anomalyScore > 0.45 || d.isAnomalyPeak)
+    : telemetryData.findIndex((d) => d.anomalyScore > 0.45);
   const anomalyPoint = anomalyIndex !== -1 ? telemetryData[anomalyIndex] : null;
 
   const isHighlighted = activeAlertId === 'alert-1' || activeAlertId === 'alert-2';
@@ -63,8 +63,7 @@ export default function AnomalyScoreChart() {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 1.0,
-      interval: 0.5,
+      max: (v) => Math.max(1.0, Math.ceil(v.max * 1.25 * 10) / 10),
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#F1F5F9' } },
@@ -74,7 +73,7 @@ export default function AnomalyScoreChart() {
       {
         name: 'Threshold',
         type: 'line',
-        data: timestamps.map(() => 0.45),
+        data: timestamps.map((_, idx) => telemetryData[idx]?.threshold ?? 0.45),
         lineStyle: { type: 'dashed', color: '#EF4444', width: 1.5 },
         showSymbol: false,
         tooltip: { show: false }
@@ -99,7 +98,7 @@ export default function AnomalyScoreChart() {
         markPoint: anomalyPoint
           ? {
               symbol: 'roundRect',
-              symbolSize: [95, 30],
+              symbolSize: [105, 30],
               symbolOffset: [0, -22],
               itemStyle: {
                 color: '#FAF5FF',
@@ -109,7 +108,7 @@ export default function AnomalyScoreChart() {
                 shadowBlur: 8
               },
               label: {
-                formatter: `Score: 0.87`,
+                formatter: `Score: ${anomalyPoint.anomalyScore ?? 0.87}`,
                 color: '#6D28D9',
                 fontWeight: 'bold',
                 fontSize: 11

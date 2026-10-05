@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const TelemetrySchema = new mongoose.Schema({
-  ts: { type: Date, default: Date.now, index: true },
+  ts: { type: Date, default: Date.now, expires: 1800 },
   meta: {
     sessionId: { type: String, required: true, index: true }
   },

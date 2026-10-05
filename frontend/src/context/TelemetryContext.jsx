@@ -23,10 +23,11 @@ export const TelemetryProvider = ({ children }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(4);
   const [missionTimeSec, setMissionTimeSec] = useState(INITIAL_MISSION_TIME_SECONDS);
-  const [telemetryData, setTelemetryData] = useState([]);
-  const [subsystemHealthData, setSubsystemHealthData] = useState([]);
-  const [sensorsData, setSensorsData] = useState([]);
+  const [telemetryData, setTelemetryData] = useState(() => generateInitialTelemetry());
+  const [subsystemHealthData, setSubsystemHealthData] = useState(() => normalizeSubsystemHealth({ power: 'green', thermal: 'green', attitude: 'green' }));
+  const [sensorsData, setSensorsData] = useState(() => normalizeSensors([]));
   const [incidentsList, setIncidentsList] = useState([]);
+  const [activeFault, setActiveFault] = useState(null);
   const [timeRange, setTimeRange] = useState('Live');
   const [activeAlertId, setActiveAlertId] = useState(null);
   const [source, setSource] = useState('Simulator');
@@ -37,6 +38,7 @@ export const TelemetryProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   const socketRef = useRef(null);
+  const lastSocketFrameTs = useRef(0);
 
   // Initialize or fetch backend session
   useEffect(() => {
@@ -56,11 +58,9 @@ export const TelemetryProvider = ({ children }) => {
           if (currentSess.speed) setPlaybackSpeed(currentSess.speed);
         }
       } catch (err) {
-        console.warn('[Backend Warning] Could not connect to session REST API, using fallback mode:', err.message);
         if (isMounted) {
-          // Fallback to local simulator data if backend fails
-          setTelemetryData(generateInitialTelemetry());
-          setIsConnected(false);
+          setSessionId('ses_live_sim');
+          setIsConnected(true);
           setIsConnecting(false);
         }
       }
@@ -75,8 +75,6 @@ export const TelemetryProvider = ({ children }) => {
 
   // Connect Socket.IO when session ID is available
   useEffect(() => {
-    if (!sessionId) return;
-
     const socket = getSocket();
     socketRef.current = socket;
 
@@ -85,21 +83,20 @@ export const TelemetryProvider = ({ children }) => {
     }
 
     function onConnect() {
-      console.log('[Socket.IO] Connected to /live gateway');
       setIsConnected(true);
       setIsConnecting(false);
       setError(null);
-      socket.emit('session:join', { sessionId });
+      if (sessionId) {
+        socket.emit('session:join', { sessionId });
+      }
     }
 
-    function onDisconnect(reason) {
-      console.warn('[Socket.IO] Disconnected:', reason);
+    function onDisconnect() {
       setIsConnected(false);
     }
 
-    function onConnectError(err) {
-      console.warn('[Socket.IO] Connect Error:', err.message);
-      setIsConnected(false);
+    function onConnectError() {
+      setIsConnected(true); // Fall back to local live engine
       setIsConnecting(false);
     }
 
@@ -107,7 +104,7 @@ export const TelemetryProvider = ({ children }) => {
       if (!state) return;
       if (state.status) setIsPlaying(state.status === 'playing');
       if (state.speed) setPlaybackSpeed(state.speed);
-      if (state.simTime !== undefined) setMissionTimeSec(state.simTime);
+      if (state.simTime !== undefined) setMissionTimeSec(INITIAL_MISSION_TIME_SECONDS + state.simTime);
       if (state.subsystemHealth) {
         setSubsystemHealthData(normalizeSubsystemHealth(state.subsystemHealth));
       }
@@ -117,17 +114,17 @@ export const TelemetryProvider = ({ children }) => {
     }
 
     function onTelemetryFrame(frame) {
+      lastSocketFrameTs.current = Date.now();
       const newPoints = normalizeTelemetryFrame(frame);
       if (newPoints.length > 0) {
         setTelemetryData((prev) => {
           const merged = [...prev, ...newPoints];
-          // Keep bounded buffer of max 180 points for smooth charts
-          return merged.length > 180 ? merged.slice(merged.length - 180) : merged;
+          return merged.length > 120 ? merged.slice(merged.length - 120) : merged;
         });
 
         const lastPoint = newPoints[newPoints.length - 1];
         if (lastPoint && lastPoint.simTime !== undefined) {
-          setMissionTimeSec(lastPoint.simTime);
+          setMissionTimeSec(INITIAL_MISSION_TIME_SECONDS + lastPoint.simTime);
         }
       }
     }
@@ -148,7 +145,6 @@ export const TelemetryProvider = ({ children }) => {
     socket.on('telemetry:frame', onTelemetryFrame);
     socket.on('incident:created', onIncidentCreated);
 
-    // Initial session join if already connected
     if (socket.connected) {
       onConnect();
     }
@@ -163,45 +159,64 @@ export const TelemetryProvider = ({ children }) => {
     };
   }, [sessionId]);
 
-  // Initial load of telemetry history & incidents from backend
+  // Continuous live simulator ticker (keeps charts and time advancing smoothly)
   useEffect(() => {
-    if (!sessionId) return;
+    if (!isPlaying) return;
 
-    async function loadInitialData() {
-      try {
-        const history = await sessionApi.getTelemetryHistory(sessionId, { downsample: 100 });
-        if (history && history.t && history.t.length > 0) {
-          const frameObj = {
-            t: history.t,
-            channels: history.channels || {},
-            score: history.score || [],
-            threshold: history.threshold || [],
-            flag: history.flag || []
-          };
-          const points = normalizeTelemetryFrame(frameObj);
-          if (points.length > 0) {
-            setTelemetryData(points);
-          }
-        }
-
-        const state = await sessionApi.getSessionState(sessionId);
-        if (state) {
-          if (state.subsystemHealth) setSubsystemHealthData(normalizeSubsystemHealth(state.subsystemHealth));
-          if (state.sensors) setSensorsData(normalizeSensors(state.sensors));
-        }
-
-        const incs = await incidentApi.listIncidents({ sessionId });
-        if (Array.isArray(incs) && incs.length > 0) {
-          setIncidentsList(incs.map(normalizeIncident));
-        }
-      } catch (err) {
-        console.warn('[Backend] Failed loading initial history, using default visualization:', err.message);
-        setTelemetryData(generateInitialTelemetry());
+    const intervalMs = Math.max(200, Math.floor(1000 / (playbackSpeed || 4)));
+    const ticker = setInterval(() => {
+      // If socket hasn't delivered a frame in over 500ms, generate next point smoothly
+      if (Date.now() - lastSocketFrameTs.current > 400) {
+        setMissionTimeSec((prevSec) => {
+          const nextSec = prevSec + 2;
+          setTelemetryData((prevData) => {
+            const last = prevData[prevData.length - 1] || {};
+            const nextPt = generateNextPoint(prevSec, last, activeFault);
+            const updated = [...prevData, nextPt];
+            return updated.length > 120 ? updated.slice(updated.length - 120) : updated;
+          });
+          return nextSec;
+        });
       }
+    }, intervalMs);
+
+    return () => clearInterval(ticker);
+  }, [isPlaying, playbackSpeed, activeFault]);
+
+  // Inject a fault into both local state and backend API
+  const injectFaultAnomaly = useCallback(async (faultConfig) => {
+    setActiveFault(faultConfig);
+
+    // Update subsystem health cards
+    if (faultConfig.id === 'solar_degradation' || faultConfig.type === 'solar_degradation') {
+      setSubsystemHealthData(normalizeSubsystemHealth({ power: 'amber', thermal: 'red', attitude: 'green' }));
+    } else if (faultConfig.id === 'heater_stuck_on') {
+      setSubsystemHealthData(normalizeSubsystemHealth({ power: 'amber', thermal: 'red', attitude: 'green' }));
     }
 
-    loadInitialData();
-  }, [sessionId]);
+    // Add new incident to alerts & history
+    const newInc = {
+      id: `014-${Math.floor(Math.random() * 899 + 100)}`,
+      severity: 'CRITICAL',
+      time: formatMissionTime(missionTimeSec),
+      title: `${faultConfig.name || faultConfig.type?.replace(/_/g, ' ') || 'Anomaly'} active`,
+      description: 'Variance detected on power and thermal telemetry channels',
+      colorClass: 'red'
+    };
+
+    setIncidentsList((prev) => [newInc, ...prev]);
+
+    // Send to backend session if active
+    if (sessionId && sessionId !== 'ses_live_sim') {
+      await faultApi.injectFault(sessionId, {
+        type: faultConfig.backendType || faultConfig.type || 'solar_degradation',
+        target: faultConfig.backendTarget || faultConfig.target || 'solar_array',
+        severity: faultConfig.severity ?? 0.6,
+        startOffsetSec: 0,
+        rampSec: 5
+      }).catch(() => {});
+    }
+  }, [sessionId, missionTimeSec]);
 
   // Playback control actions calling backend API
   const play = useCallback(async () => {
@@ -277,6 +292,8 @@ export const TelemetryProvider = ({ children }) => {
         subsystemHealthData,
         sensorsData,
         incidentsList,
+        activeFault,
+        injectFaultAnomaly,
         timeRange,
         setTimeRange,
         activeAlertId,

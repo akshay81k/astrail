@@ -10,10 +10,10 @@ export default function BatteryTemperatureChart() {
   const timestamps = telemetryData.map((d) => d.timestamp);
   const batteryValues = telemetryData.map((d) => d.batteryTemp);
 
-  // Find index of anomaly peak 02:11:08 or highest value
-  const anomalyIndex = telemetryData.findIndex(
-    (d) => d.timestamp === '02:11:08' || d.isAnomalyPeak
-  );
+  // Dynamically find latest anomaly point or peak in active telemetry window
+  const anomalyIndex = telemetryData.findLastIndex
+    ? telemetryData.findLastIndex((d) => d.isAnomalyPeak || d.batteryTemp > 38 || d.status === 'ANOMALY')
+    : telemetryData.findIndex((d) => d.isAnomalyPeak || d.batteryTemp > 38);
   const anomalyPoint = anomalyIndex !== -1 ? telemetryData[anomalyIndex] : null;
 
   const isHighlighted = activeAlertId === 'alert-1'; // Thermal anomaly alert
@@ -123,7 +123,7 @@ export default function BatteryTemperatureChart() {
                 shadowBlur: 8
               },
               label: {
-                formatter: `▲ Anomaly\n42.1°C`,
+                formatter: `▲ Anomaly\n${anomalyPoint ? anomalyPoint.batteryTemp : 42.1}°C`,
                 color: '#DC2626',
                 fontWeight: 'bold',
                 fontSize: 11,

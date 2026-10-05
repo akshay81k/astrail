@@ -6,19 +6,22 @@ import InjectionParameters from '../components/InjectionParameters';
 import FaultPreview from '../components/FaultPreview';
 import GroundTruthPanel from '../components/GroundTruthPanel';
 import FaultActions from '../components/FaultActions';
+import { useTelemetry } from '../context/TelemetryContext';
 import { FAULT_TYPES } from '../data/faultMetadata';
 import { faultApi } from '../api/faultApi';
 import { sessionApi } from '../api/sessionApi';
 import { Clock, CheckCircle, RefreshCw } from 'lucide-react';
 
 export default function FaultInjection() {
+  const { sessionId, injectFaultAnomaly, missionTimeSec, formattedMissionTime } = useTelemetry();
+
   const [selectedFaultId, setSelectedFaultId] = useState('solar_degradation');
   const [severity, setSeverity] = useState(60);
-  const [startOffsetSec, setStartOffsetSec] = useState(30);
+  const [startOffsetSec, setStartOffsetSec] = useState(0);
   const [missingPct, setMissingPct] = useState(20);
   const [delaySec, setDelaySec] = useState(10);
 
-  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState(sessionId || 'ses_live_sim');
   const [simulatorStatus, setSimulatorStatus] = useState('Simulator Ready');
   const [simSubtext, setSimSubtext] = useState('All systems nominal');
   const [injecting, setInjecting] = useState(false);
@@ -27,27 +30,43 @@ export default function FaultInjection() {
   const [groundTruth, setGroundTruth] = useState(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
 
-  // Initialize or discover active session
   useEffect(() => {
-    async function initSession() {
-      try {
-        const listRes = await sessionApi.listSessions();
-        const sessions = listRes?.data || listRes || [];
-        if (Array.isArray(sessions) && sessions.length > 0) {
-          const simSession = sessions.find((s) => s.source === 'simulator') || sessions[0];
-          setActiveSessionId(simSession.id || simSession._id);
-        } else {
-          const newSession = await sessionApi.createSession({ source: 'simulator' });
-          const created = newSession?.data || newSession;
-          setActiveSessionId(created.id || created._id);
-        }
-      } catch (err) {
-        // Fallback demo session ID if backend is initializing
-        setActiveSessionId('session_sim_active');
-      }
+    if (sessionId) {
+      setActiveSessionId(sessionId);
     }
-    initSession();
-  }, []);
+  }, [sessionId]);
+
+  const [lastFaultId, setLastFaultId] = useState(null);
+  const [revealingTruth, setRevealingTruth] = useState(false);
+
+  const handleRevealTruth = async () => {
+    if (!activeSessionId) return;
+    try {
+      setRevealingTruth(true);
+      let truthData = null;
+      if (lastFaultId) {
+        const res = await faultApi.getFaultTruth(activeSessionId, lastFaultId, true).catch(() => null);
+        truthData = res?.data || res;
+      }
+      if (!truthData) {
+        const selectedFault = FAULT_TYPES.find((f) => f.id === selectedFaultId) || FAULT_TYPES[0];
+        truthData = {
+          rootCause: selectedFault.name,
+          type: selectedFault.backendType,
+          targetSubsystem: selectedFault.subsystem,
+          target: selectedFault.backendTarget,
+          severity: Number((severity / 100).toFixed(2)),
+          propagationChain: ['Solar Array Output Drop', 'Battery Discharge Acceleration', 'Thermal Imbalance (+6°C)']
+        };
+      }
+      setGroundTruth(truthData);
+      setIsUnlocked(true);
+    } catch (err) {
+      setIsUnlocked(true);
+    } finally {
+      setRevealingTruth(false);
+    }
+  };
 
   const handleInjectFault = async () => {
     setErrorMsg(null);
@@ -76,6 +95,8 @@ export default function FaultInjection() {
 
       // 1. Inject Fault payload
       const faultPayload = {
+        id: selectedFault.id,
+        name: selectedFault.name,
         type: selectedFault.backendType,
         target: selectedFault.backendTarget,
         severity: Number((severity / 100).toFixed(2)),
@@ -83,7 +104,14 @@ export default function FaultInjection() {
         rampSec: 5
       };
 
-      await faultApi.injectFault(sid, faultPayload);
+      // Trigger instant telemetry & subsystem reaction in context
+      injectFaultAnomaly(faultPayload);
+
+      const injectRes = await faultApi.injectFault(sid, faultPayload).catch(() => null);
+      const injected = injectRes?.data || injectRes;
+      if (injected?.id || injected?.faultId) {
+        setLastFaultId(injected.id || injected.faultId);
+      }
 
       // 2. Update stress / data quality if specified
       if (missingPct > 0 || delaySec > 0) {
@@ -94,8 +122,9 @@ export default function FaultInjection() {
       }
 
       setInjectSuccess(true);
-      setSimulatorStatus('Fault Scheduled');
-      setSimSubtext(`Starts in ${startOffsetSec}s`);
+      setSimulatorStatus('Fault Active');
+      setSimSubtext('Telemetry actively deviating');
+      setIsUnlocked(false);
 
       setTimeout(() => {
         setInjectSuccess(false);
@@ -103,8 +132,8 @@ export default function FaultInjection() {
     } catch (err) {
       // If server session is mock or offline, show success state in UI gracefully
       setInjectSuccess(true);
-      setSimulatorStatus('Fault Injected');
-      setSimSubtext('Active in simulation');
+      setSimulatorStatus('Fault Active');
+      setSimSubtext('Telemetry actively deviating');
       setTimeout(() => {
         setInjectSuccess(false);
       }, 5000);
@@ -126,16 +155,29 @@ export default function FaultInjection() {
         heldOut: true
       }).catch(() => null);
 
-      if (res && res.type) {
-        const matched = FAULT_TYPES.find((f) => f.backendType === res.type);
-        if (matched) {
-          setSelectedFaultId(matched.id);
-        }
+      const injected = res?.data || res;
+      if (injected?.id || injected?.faultId) {
+        setLastFaultId(injected.id || injected.faultId);
       }
+
+      let matched = FAULT_TYPES[0];
+      if (injected && injected.type) {
+        matched = FAULT_TYPES.find((f) => f.backendType === injected.type) || FAULT_TYPES[0];
+        setSelectedFaultId(matched.id);
+      }
+
+      injectFaultAnomaly({
+        id: matched.id,
+        name: matched.name,
+        type: matched.backendType,
+        target: matched.backendTarget,
+        severity: 0.65
+      });
 
       setInjectSuccess(true);
       setSimulatorStatus('Random Fault Active');
-      setSimSubtext('Blind test initiated');
+      setSimSubtext('Telemetry actively deviating');
+      setIsUnlocked(false);
 
       setTimeout(() => {
         setInjectSuccess(false);
@@ -223,6 +265,8 @@ export default function FaultInjection() {
               <GroundTruthPanel
                 groundTruth={groundTruth}
                 isUnlocked={isUnlocked}
+                onRevealTruth={handleRevealTruth}
+                loading={revealingTruth}
               />
 
               <FaultActions

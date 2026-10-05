@@ -73,23 +73,52 @@ export function generateInitialTelemetry() {
   return data;
 }
 
-// Generate next simulated data point
-export function generateNextPoint(prevSec, lastPoint) {
-  const sec = prevSec + 4;
+// Generate next simulated data point with dynamic fault effects
+export function generateNextPoint(prevSec, lastPoint = {}, activeFault = null) {
+  const sec = (prevSec || INITIAL_MISSION_TIME_SECONDS) + 2;
   const timestamp = formatMissionTime(sec);
   
-  // Continuously simulate post-anomaly status
-  const batteryTemp = 39.2 + Math.sin(sec / 20) * 0.8 + (Math.random() * 0.4 - 0.2);
-  const solarCurrent = 1.6 + Math.random() * 0.2;
-  const anomalyScore = 0.21 + Math.random() * 0.09;
+  let batteryTemp = 31.0 + Math.sin(sec / 40) * 1.2 + (Math.random() * 0.4 - 0.2);
+  let solarCurrent = 4.3 + Math.cos(sec / 50) * 0.3 + (Math.random() * 0.2 - 0.1);
+  let anomalyScore = 0.15 + Math.random() * 0.08;
+  let status = 'NOMINAL';
+  let isAnomalyPeak = false;
+
+  if (activeFault) {
+    const sev = activeFault.severity ?? 0.6;
+    if (activeFault.id === 'solar_degradation' || activeFault.type === 'solar_degradation') {
+      solarCurrent = Math.max(0.8, parseFloat((4.3 * (1 - sev)).toFixed(1)));
+      batteryTemp = parseFloat((31.0 + sev * 18.0 + Math.random() * 0.5).toFixed(1));
+      anomalyScore = parseFloat((0.45 + sev * 0.55 + Math.random() * 0.05).toFixed(2));
+      status = 'ANOMALY';
+      isAnomalyPeak = true;
+    } else if (activeFault.id === 'heater_stuck_on' || activeFault.type === 'heater_stuck_on') {
+      batteryTemp = parseFloat((35.0 + sev * 16.0 + Math.random() * 0.4).toFixed(1));
+      anomalyScore = parseFloat((0.5 + sev * 0.45).toFixed(2));
+      status = 'ANOMALY';
+      isAnomalyPeak = true;
+    } else if (activeFault.id === 'battery_degradation' || activeFault.type === 'battery_degradation') {
+      batteryTemp = parseFloat((34.0 + sev * 12.0).toFixed(1));
+      solarCurrent = parseFloat((solarCurrent * 0.85).toFixed(1));
+      anomalyScore = parseFloat((0.48 + sev * 0.4).toFixed(2));
+      status = 'WARNING';
+      isAnomalyPeak = true;
+    } else {
+      anomalyScore = parseFloat((0.55 + Math.random() * 0.35).toFixed(2));
+      status = 'WARNING';
+      isAnomalyPeak = true;
+    }
+  }
 
   return {
     timestamp,
     sec,
+    simTime: sec - START_TIME_SECONDS,
     batteryTemp: parseFloat(batteryTemp.toFixed(1)),
     solarCurrent: parseFloat(solarCurrent.toFixed(1)),
     anomalyScore: parseFloat(anomalyScore.toFixed(2)),
-    status: 'NOMINAL',
-    isAnomalyPeak: false
+    threshold: 0.45,
+    status,
+    isAnomalyPeak
   };
 }

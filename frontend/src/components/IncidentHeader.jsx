@@ -20,15 +20,15 @@ export default function IncidentHeader({ incident }) {
     <div className="incident-header-card">
       <div className="incident-header-top">
         <div className="breadcrumb">
-          <span className="breadcrumb-item" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
+          <span className="breadcrumb-item" onClick={() => navigate('/incidents')} style={{ cursor: 'pointer' }}>
             Incidents
           </span>
           <span className="breadcrumb-separator">&gt;</span>
           <span className="breadcrumb-current">{displayId}</span>
         </div>
-        <button className="btn-back" onClick={() => navigate('/')}>
+        <button className="btn-back" onClick={() => navigate('/incidents')}>
           <ArrowLeft size={16} />
-          <span>Back to Overview</span>
+          <span>Back to Incidents</span>
         </button>
       </div>
 

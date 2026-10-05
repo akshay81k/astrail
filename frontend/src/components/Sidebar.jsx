@@ -15,13 +15,10 @@ import {
 
 const navItems = [
   { id: 'mission-control', label: 'Mission Control', icon: LayoutDashboard, path: '/' },
-  { id: 'telemetry', label: 'Telemetry', icon: LineChart, path: '/' },
-  { id: 'subsystems', label: 'Subsystems', icon: SlidersHorizontal, path: '/' },
   { id: 'incidents', label: 'Incidents', icon: AlertTriangle, path: '/incidents' },
-  { id: 'analysis', label: 'Analysis', icon: BarChart3, path: '/analysis/comparison' },
-  { id: 'simulator', label: 'Simulator', icon: Terminal, path: '/' },
+  { id: 'analysis', label: 'Detection Comparison', icon: BarChart3, path: '/analysis/comparison' },
   { id: 'fault-injection', label: 'Fault Injection', icon: Wrench, path: '/fault-injection' },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports' }
+  { id: 'reports', label: 'Model Evaluation', icon: FileText, path: '/reports' }
 ];
 
 export default function Sidebar() {
@@ -40,7 +37,7 @@ export default function Sidebar() {
           <Satellite size={24} className="logo-svg" />
         </div>
         <div className="sidebar-brand">
-          <h1 className="brand-title">INITIUM</h1>
+          <h1 className="brand-title">Astrail</h1>
           <span className="brand-subtitle">SPACECRAFT MONITOR</span>
         </div>
       </div>

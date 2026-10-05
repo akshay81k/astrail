@@ -38,11 +38,24 @@ const alertItems = [
 
 export default function AlertsPanel() {
   const navigate = useNavigate();
-  const { activeAlertId, setActiveAlertId } = useTelemetry();
+  const { activeAlertId, setActiveAlertId, incidentsList } = useTelemetry();
+
+  const displayAlerts = (incidentsList && incidentsList.length > 0)
+    ? incidentsList.slice(0, 4).map((inc) => ({
+        id: inc.id,
+        incidentId: inc.id,
+        severity: inc.severity || 'CRITICAL',
+        time: inc.time || 'Just now',
+        title: inc.title || 'Spacecraft Anomaly',
+        description: inc.description || 'Telemetry variance detected',
+        icon: inc.severity === 'CRITICAL' ? Thermometer : (inc.severity === 'WARNING' ? Sun : Info),
+        colorClass: inc.colorClass || (inc.severity === 'CRITICAL' ? 'red' : (inc.severity === 'WARNING' ? 'amber' : 'blue'))
+      }))
+    : alertItems;
 
   const handleAlertClick = (item) => {
     setActiveAlertId(item.id);
-    navigate(`/incidents/${item.incidentId || '014'}`);
+    navigate(`/incidents/${item.incidentId || item.id || '014'}`);
   };
 
   return (
@@ -52,13 +65,13 @@ export default function AlertsPanel() {
           <Bell size={18} className="icon-bell text-red" />
           <h2 className="section-title">ALERTS</h2>
         </div>
-        <button className="btn-view-all" onClick={() => navigate('/incidents/014')}>
+        <button className="btn-view-all" onClick={() => navigate('/incidents')}>
           View All <ChevronRight size={14} />
         </button>
       </div>
 
       <div className="alerts-list">
-        {alertItems.map((item) => {
+        {displayAlerts.map((item) => {
           const Icon = item.icon;
           const isSelected = activeAlertId === item.id;
           return (

@@ -9,9 +9,9 @@ export default function SolarCurrentChart() {
   const timestamps = telemetryData.map((d) => d.timestamp);
   const currentValues = telemetryData.map((d) => d.solarCurrent);
 
-  const anomalyIndex = telemetryData.findIndex(
-    (d) => d.timestamp === '02:11:08' || d.isAnomalyPeak
-  );
+  const anomalyIndex = telemetryData.findLastIndex
+    ? telemetryData.findLastIndex((d) => d.solarCurrent < 3.0 || d.isAnomalyPeak)
+    : telemetryData.findIndex((d) => d.solarCurrent < 3.0);
   const anomalyPoint = anomalyIndex !== -1 ? telemetryData[anomalyIndex] : null;
 
   const isHighlighted = activeAlertId === 'alert-2'; // Solar current warning alert
@@ -121,7 +121,7 @@ export default function SolarCurrentChart() {
                 shadowBlur: 8
               },
               label: {
-                formatter: `↓ Deviation\n2.1 A`,
+                formatter: `↓ Deviation\n${anomalyPoint ? anomalyPoint.solarCurrent : 2.1} A`,
                 color: '#B45309',
                 fontWeight: 'bold',
                 fontSize: 11,

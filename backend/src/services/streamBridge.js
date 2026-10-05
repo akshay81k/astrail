@@ -19,7 +19,6 @@ class SessionStreamBridge {
     this.mockSim = new MockSimulator(session);
     this.timer = null;
     this.telemetryBuffer = [];
-    this.persistTimer = null;
 
     this.lastStateEmit = 0;
   }
@@ -63,7 +62,6 @@ class SessionStreamBridge {
     this.status = 'ended';
     this.mockSim.status = 'ended';
     if (this.timer) clearInterval(this.timer);
-    if (this.persistTimer) clearInterval(this.persistTimer);
     if (this.ws) {
       try {
         this.ws.close();
@@ -121,47 +119,29 @@ class SessionStreamBridge {
         this._processAndEmitFrame(frame);
       }
     }, intervalMs);
-
-    // Telemetry persistence batch timer (every 1 second)
-    if (!this.persistTimer) {
-      this.persistTimer = setInterval(() => {
-        this._flushTelemetryBuffer();
-      }, 1000);
-    }
   }
 
   _processAndEmitFrame(frame) {
-    // 1. Forward frame to Socket.IO room
+    // 1. Forward frame in real-time to Socket.IO room (no DB write)
     liveHub.emitToSession(this.sessionId, 'telemetry:frame', frame);
 
-    // 2. Buffer for DB persistence
+    // 2. Keep bounded in-memory history (last 180 points) for REST polling if needed
     if (frame.t && frame.t.length > 0) {
       for (let i = 0; i < frame.t.length; i++) {
         const v = {};
-        const q = {};
-        const fc = {};
-        const ls = {};
-
         Object.keys(frame.channels).forEach(ch => {
           v[ch] = frame.channels[ch][i];
-          fc[ch] = frame.forecast?.[ch]?.[i];
-          q[ch] = frame.status?.[ch]?.[i] || 'ok';
-          ls[ch] = frame.limitState?.[ch]?.[i] || 'ok';
         });
-
         this.telemetryBuffer.push({
-          ts: new Date(),
-          meta: { sessionId: this.sessionId },
           simTime: frame.t[i],
-          v,
-          q,
-          forecast: fc,
+          channels: v,
           score: frame.score[i],
           threshold: frame.threshold[i],
-          flag: frame.flag[i],
-          regime: frame.regime[i],
-          limitState: ls
+          flag: frame.flag[i]
         });
+      }
+      if (this.telemetryBuffer.length > 180) {
+        this.telemetryBuffer = this.telemetryBuffer.slice(this.telemetryBuffer.length - 180);
       }
     }
 
@@ -219,18 +199,6 @@ class SessionStreamBridge {
         break;
       default:
         liveHub.emitToSession(this.sessionId, type, data);
-    }
-  }
-
-  async _flushTelemetryBuffer() {
-    if (this.telemetryBuffer.length === 0) return;
-    const batch = [...this.telemetryBuffer];
-    this.telemetryBuffer = [];
-
-    try {
-      await Telemetry.insertMany(batch, { ordered: false });
-    } catch (_) {
-      // Ignored if DB is in-memory or duplicate
     }
   }
 
