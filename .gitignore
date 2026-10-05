@@ -10,14 +10,6 @@ venv/
 __pycache__/
 *.pyc
 
-# ML
-models/*.pkl
-models/*.joblib
-
-# Dataset
-python-service/data/
-*.parquet
-
 # Build
 dist/
 build/
