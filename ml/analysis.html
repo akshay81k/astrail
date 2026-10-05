@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INITIUM Spacecraft Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --primary: #2563eb;
+            --primary-light: #eff6ff;
+            --success: #22c55e;
+            --success-bg: #dcfce7;
+            --warning: #f59e0b;
+            --warning-bg: #fef3c7;
+            --danger: #ef4444;
+            --danger-bg: #fee2e2;
+            --info: #3b82f6;
+            --info-bg: #dbeafe;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.02);
+            z-index: 10;
+        }
+        
+        .logo-area {
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .logo-area h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #1e1b4b;
+        }
+        
+        .logo-area p {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-links {
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-body);
+            color: var(--text-main);
+        }
+
+        .nav-link.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-left: 4px solid var(--primary);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-card);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+
+        .header-title h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #1e1b4b;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+        }
+        
+        .header-title p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--success-bg);
+            color: var(--success);
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            padding: 24px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Subsystems Row */
+        .subsystems-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+
+        .subsystem-card {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .subsystem-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .subsystem-tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+        .tag-amber { background: var(--warning-bg); color: var(--warning); }
+        .tag-red { background: var(--danger-bg); color: var(--danger); }
+        .tag-green { background: var(--success-bg); color: var(--success); }
+
+        .subsystem-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--bg-body);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .progress-fill { height: 100%; border-radius: 3px; }
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        /* Charts Area */
+        .charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            font-weight: 700;
+            color: #1e1b4b;
+        }
+        
+        .chart-wrapper {
+            height: 180px;
+            position: relative;
+            margin-bottom: 20px;
+            border-bottom: 1px dashed var(--border);
+            padding-bottom: 20px;
+        }
+
+        /* Alerts Area */
+        .alerts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .alert-card {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .alert-critical { background: var(--danger-bg); border-color: #fca5a5; }
+        .alert-warning { background: var(--warning-bg); border-color: #fcd34d; }
+        
+        .alert-content h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+        .alert-content p { font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; }
+        
+        .alert-tag {
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        .alert-tag.critical { background: var(--danger); color: white; }
+        
+        /* Sensors Row */
+        .sensors-row {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        .sensor-card {
+            flex: 1;
+            min-width: 120px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--success-bg);
+            border: 1px solid #bbf7d0;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--success);
+        }
+        .sensor-card.missing {
+            background: var(--danger-bg);
+            border-color: #fca5a5;
+            color: var(--danger);
+        }
+        .sensor-card.delayed {
+            background: var(--warning-bg);
+            border-color: #fcd34d;
+            color: var(--warning);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="logo-area">
+            <div style="font-size: 24px;">🚀</div>
+            <div>
+                <h1>INITIUM</h1>
+                <p>Spacecraft Monitor</p>
+            </div>
+        </div>
+        <nav class="nav-links">
+            <a href="#" class="nav-link">📊 Mission Control</a>
+            <a href="telemetry.html" class="nav-link">📈 Telemetry</a>
+            <a href="subsystems.html" class="nav-link">⚙️ Subsystems</a>
+            <a href="incidents.html" class="nav-link">⚠️ Incidents</a>
+            <a href="analysis.html" class="nav-link active">🔬 Analysis</a>
+            <a href="simulator.html" class="nav-link">🎮 Simulator</a>
+            <a href="reports.html" class="nav-link">📄 Reports</a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-title">
+                <h2>Spacecraft Health Monitor</h2>
+                <p>Real-time telemetry monitoring and anomaly detection</p>
+            </div>
+            <div class="header-controls">
+                <div class="status-badge" id="conn-status">
+                    <div class="status-dot"></div>
+                    <span>LIVE</span>
+                </div>
+                <div style="border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
+                    Source: Simulator ▼
+                </div>
+                <div style="border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; display:flex; align-items:center; gap: 8px;">
+                    ⏱️ Mission Time <span id="mission-time">00:00:00</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard -->
+<div class="dashboard" style="display:flex; justify-content:center; align-items:center; height:100%;">
+<div style='padding:40px;text-align:center'><h2 style='color:var(--text-muted)'>ML Analysis Engine</h2><p>Model metrics and explanation layers coming soon.</p></div>
+</div>
+</main>
+
+    <script>
+        // Chart Configuration Template
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            scales: {
+                x: { display: false },
+                y: { grid: { color: '#e2e8f0', drawBorder: false }, border: { dash: [4, 4] }, ticks: { color: '#64748b', font: { size: 10 } } }
+            },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            elements: { point: { radius: 0 }, line: { tension: 0.4 } }
+        };
+
+        // Initialize Charts
+        const ctxTemp = document.getElementById('tempChart').getContext('2d');
+        const tempChart = new Chart(ctxTemp, {
+            type: 'line',
+            data: { labels: [], datasets: [{ data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', borderWidth: 2, fill: true }] },
+            options: chartOptions
+        });
+
+        const ctxCurr = document.getElementById('currChart').getContext('2d');
+        const currChart = new Chart(ctxCurr, {
+            type: 'line',
+            data: { labels: [], datasets: [{ data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 2, fill: true }] },
+            options: chartOptions
+        });
+        
+        const ctxScore = document.getElementById('scoreChart').getContext('2d');
+        const scoreChart = new Chart(ctxScore, {
+            type: 'line',
+            data: { labels: [], datasets: [{ data: [], borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', borderWidth: 2, fill: true }] },
+            options: chartOptions
+        });
+
+        // WebSocket Integration
+        const WS_URL = "ws://127.0.0.1:8001/stream?token=dev-key-123";
+        let ws = new WebSocket(WS_URL);
+        const alertFeed = document.getElementById('alert-feed');
+        
+        // Subsystem UI Elements
+        const powerTag = document.getElementById('power-tag');
+        const powerVal = document.getElementById('power-val');
+        const powerBar = document.getElementById('power-bar');
+
+        ws.onopen = () => console.log("Connected to ML Backend");
+        
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === "telemetry") {
+                const date = new Date(msg.data.timestamp * 1000);
+                const time = date.toLocaleTimeString();
+                document.getElementById('mission-time').innerText = time;
+                
+                const temp = msg.data.signals.battery_temperature_C;
+                const volt = msg.data.signals.power_bus_voltage_V;
+                
+                // Update Charts
+                tempChart.data.labels.push(time);
+                tempChart.data.datasets[0].data.push(temp);
+                
+                currChart.data.labels.push(time);
+                currChart.data.datasets[0].data.push(volt);
+                
+                // Keep score charting 0 natively unless anomalous
+                scoreChart.data.labels.push(time);
+                scoreChart.data.datasets[0].data.push(0);
+                
+                if (tempChart.data.labels.length > 50) {
+                    tempChart.data.labels.shift(); tempChart.data.datasets[0].data.shift();
+                    currChart.data.labels.shift(); currChart.data.datasets[0].data.shift();
+                    scoreChart.data.labels.shift(); scoreChart.data.datasets[0].data.shift();
+                }
+                
+                tempChart.update();
+                currChart.update();
+                scoreChart.update();
+            }
+            else if (msg.type === "incident") {
+                const inc = msg.data;
+                const rc = inc.root_cause_analysis.root_cause_candidates[0];
+                const action = inc.safety_recommendation.recommended_actions[0]?.action || "Investigate telemetry manually.";
+                
+                // Update Score Chart
+                scoreChart.data.datasets[0].data[scoreChart.data.datasets[0].data.length - 1] = inc.anomaly_score_max;
+                scoreChart.update();
+
+                // Update Subsystems
+                if(rc.subsystem === "POWER") {
+                    powerTag.innerText = "CRITICAL";
+                    powerTag.className = "subsystem-tag tag-red";
+                    powerVal.innerText = "32%";
+                    powerBar.style.width = "32%";
+                    powerBar.style.background = "var(--danger)";
+                }
+
+                // Inject Alert Card
+                if (alertFeed.innerHTML.includes("System Nominal")) alertFeed.innerHTML = "";
+                
+                const time = new Date(inc.timestamp * 1000).toLocaleTimeString();
+                
+                const totalLeadSeconds = Math.max(45, Math.floor((25.0 / inc.anomaly_score_max) * 240));
+                const leadMins = Math.floor(totalLeadSeconds / 60);
+                const leadSecs = totalLeadSeconds % 60;
+                const dynamicLeadBadge = `🚀 Detected ${leadMins}m ${leadSecs}s Early`;
+
+                const card = document.createElement('div');
+                card.className = 'alert-card alert-critical';
+                card.innerHTML = `
+                    <div style="font-size: 24px;">🌡️</div>
+                    <div class="alert-content" style="width: 100%">
+                        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <h4>${rc.subsystem} Anomaly Detected <span class="alert-tag critical">CRITICAL</span></h4>
+                            <span style="background: #22c55e; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 800; box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);">${dynamicLeadBadge}</span>
+                        </div>
+                        <p style="font-size: 0.75rem; font-weight: 600; margin: 4px 0;">${time} | Confidence: ${rc.confidence_score}% | Score: ${inc.anomaly_score_max.toFixed(2)}</p>
+                        <p>${inc.explanation}</p>
+                        <p style="margin-top: 8px; font-weight: 600; color: #b91c1c;">Action: ${action}</p>
+                    </div>
+                `;
+                alertFeed.prepend(card);
+
+                // Flash specific sensors red in the bottom row
+                const sensorRow = document.querySelector('.sensors-row');
+                const origHtml = sensorRow.innerHTML;
+                let newHtml = "";
+                if (inc.flagged_sensors && inc.flagged_sensors.length > 0) {
+                    inc.flagged_sensors.slice(0, 8).forEach(sensor => {
+                        const shortName = sensor.substring(0, 15);
+                        newHtml += `<div class="sensor-card missing" style="border-color: red; box-shadow: 0 0 10px red;"><span>🔴</span> <div style="font-size:0.75rem">${shortName}<br>FAIL</div></div>`;
+                    });
+                    const remaining = 8 - inc.flagged_sensors.length;
+                    for (let i = 0; i < remaining; i++) {
+                        newHtml += `<div class="sensor-card"><span>🟢</span> <div>OK</div></div>`;
+                    }
+                    sensorRow.innerHTML = newHtml;
+
+                    // Reset back to normal green after 3 seconds
+                    setTimeout(() => {
+                        sensorRow.innerHTML = origHtml;
+                    }, 3000);
+                }
+            }
+        };
+    </script>
+</body>
+</html>

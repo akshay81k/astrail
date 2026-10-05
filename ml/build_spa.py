@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+import sys
+
+html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -70,7 +72,6 @@
             <a onclick="switchTab('tab-mission')" id="link-mission" class="nav-link active">📊 Mission Control</a>
             <a onclick="switchTab('tab-telemetry')" id="link-telemetry" class="nav-link">📈 Telemetry</a>
             <a onclick="switchTab('tab-incidents')" id="link-incidents" class="nav-link">⚠️ Incidents</a>
-            <a onclick="switchTab('tab-simulator')" id="link-simulator" class="nav-link">🎮 Simulator</a>
         </nav>
     </aside>
 
@@ -135,22 +136,6 @@
                             <tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--text-muted);">No incidents recorded in this session.</td></tr>
                         </tbody>
                     </table>
-                </div>
-            </div>
-
-            <!-- SIMULATOR TAB -->
-            <div id="tab-simulator" class="tab-pane">
-                <div class="card">
-                    <div class="chart-header"><h3>🎮 FAULT INJECTION SIMULATOR</h3></div>
-                    <div style="padding: 40px; text-align: center;">
-                        <p style="color: var(--text-muted); margin-bottom: 30px;">Manually inject faults into the live telemetry stream to test the ML anomaly detection engine.</p>
-                        <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
-                            <button onclick="alert('Command Sent to Backend: Injecting Power Surge...')" style="padding: 12px 24px; background: var(--danger); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);">⚡ Inject Power Surge</button>
-                            <button onclick="alert('Command Sent to Backend: Injecting Comms Packet Loss...')" style="padding: 12px 24px; background: var(--warning); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);">📡 Inject Packet Loss</button>
-                            <button onclick="alert('Command Sent to Backend: Injecting Thermal Runaway...')" style="padding: 12px 24px; background: var(--danger); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);">🌡️ Inject Thermal Runaway</button>
-                            <button onclick="alert('Command Sent to Backend: Masking 20% Sensors...')" style="padding: 12px 24px; background: var(--text-main); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 6px rgba(15, 23, 42, 0.3);">🙈 Simulate Sensor Dropout</button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -225,17 +210,9 @@
                 const leadSecs = totalLeadSeconds % 60;
                 const dynamicLeadBadge = `🚀 Detected ${leadMins}m ${leadSecs}s Early`;
 
-                const faultClassification = inc.root_cause_analysis.fault_classification || "Subsystem Fault";
-                const llmReasoning = inc.root_cause_analysis.llm_reasoning || "Groq Analysis: Awaiting data...";
-
                 const card = document.createElement('div');
                 card.className = 'alert-card alert-critical';
-                card.innerHTML = `<div style="font-size: 24px;">🌡️</div><div class="alert-content" style="width: 100%"><div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><h4>${rc.subsystem} Anomaly <span class="alert-tag critical">CRITICAL</span></h4><span style="background: #22c55e; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">${dynamicLeadBadge}</span></div><p style="font-size: 0.75rem; font-weight: 600; margin: 4px 0;">${time} | Type: <strong>${faultClassification}</strong> | Confidence: ${rc.confidence_score}%</p><p>${inc.explanation}</p>
-                <div style="margin-top: 10px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-                    <p style="font-size: 0.8rem; font-weight: 600; color: #f97316; margin-bottom: 4px;">⚡ Groq LPU Inference</p>
-                    <p style="font-size: 0.75rem; color: #475569; font-style: italic;">${llmReasoning}</p>
-                </div>
-                <p style="margin-top: 8px; font-weight: 600; color: #b91c1c;">Action: ${action}</p></div>`;
+                card.innerHTML = `<div style="font-size: 24px;">🌡️</div><div class="alert-content" style="width: 100%"><div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><h4>${rc.subsystem} Anomaly <span class="alert-tag critical">CRITICAL</span></h4><span style="background: #22c55e; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">${dynamicLeadBadge}</span></div><p style="font-size: 0.75rem; font-weight: 600; margin: 4px 0;">${time} | Confidence: ${rc.confidence_score}%</p><p>${inc.explanation}</p><p style="margin-top: 8px; font-weight: 600; color: #b91c1c;">Action: ${action}</p></div>`;
                 alertFeed.prepend(card);
 
                 // Add to Incidents Table
@@ -257,4 +234,7 @@
         };
     </script>
 </body>
-</html>
+</html>"""
+
+with open('mission_control.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
