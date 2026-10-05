@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spacecraft RCA - Live ML Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: rgba(30, 41, 59, 0.7);
+            --border: rgba(255, 255, 255, 0.1);
+            --primary: #38bdf8;
+            --danger: #ef4444;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+            background-image: radial-gradient(circle at 50% -20%, #1e293b, #0f172a);
+        }
+        h1 { margin-top: 0; color: var(--primary); font-weight: 600; letter-spacing: -0.5px; }
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+        .card {
+            background: var(--surface);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .chart-container { flex: 1; position: relative; min-height: 0; }
+        .feed {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .alert-card {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid var(--danger);
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            border-radius: 0 8px 8px 0;
+            animation: slideIn 0.3s ease-out;
+        }
+        .alert-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .alert-subsystem { font-weight: bold; color: var(--danger); }
+        .alert-conf { font-size: 0.85em; color: var(--text-muted); }
+        .alert-text { font-size: 0.9em; line-height: 1.4; margin-bottom: 8px; }
+        .alert-action { background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; font-size: 0.85em; font-family: monospace; color: #fbbf24; }
+        
+        .status-dot {
+            display: inline-block; width: 10px; height: 10px;
+            background: #22c55e; border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 8px #22c55e;
+        }
+        .status-header { display: flex; align-items: center; justify-content: space-between; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    </style>
+</head>
+<body>
+
+    <div class="status-header">
+        <h1>🚀 Spacecraft RCA Live ML Dashboard</h1>
+        <div>
+            <span class="status-dot" id="conn-dot"></span>
+            <span id="conn-text" style="color: var(--text-muted); font-size: 0.9em;">Waiting for stream...</span>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3 style="margin-top:0; color: var(--text-muted); font-weight: 400; font-size: 1rem;">Live Telemetry (Power Bus Voltage)</h3>
+            <div class="chart-container">
+                <canvas id="telemetryChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3 style="margin-top:0; color: var(--text-muted); font-weight: 400; font-size: 1rem;">ML Root Cause Alerts</h3>
+            <div class="feed" id="alert-feed">
+                <!-- Alerts go here -->
+                <div style="color: var(--text-muted); text-align: center; margin-top: 50px; font-style: italic;" id="no-alerts">
+                    System nominal. No anomalies detected.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Setup Chart
+        const ctx = document.getElementById('telemetryChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Power Bus Voltage (V)',
+                    data: [],
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // Setup WebSocket
+        const WS_URL = "ws://127.0.0.1:8001/stream?token=dev-key-123";
+        let ws = new WebSocket(WS_URL);
+        const dot = document.getElementById('conn-dot');
+        const text = document.getElementById('conn-text');
+        const feed = document.getElementById('alert-feed');
+        const noAlerts = document.getElementById('no-alerts');
+
+        ws.onopen = () => {
+            text.innerText = "Connected - Listening for stream...";
+            dot.style.background = "#22c55e";
+            dot.style.boxShadow = "0 0 8px #22c55e";
+        };
+
+        ws.onclose = () => {
+            text.innerText = "Disconnected.";
+            dot.style.background = "#ef4444";
+            dot.style.boxShadow = "0 0 8px #ef4444";
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === "telemetry") {
+                // Update chart
+                const time = new Date(msg.data.timestamp * 1000).toLocaleTimeString();
+                const val = msg.data.signals.power_bus_voltage_V;
+                
+                chart.data.labels.push(time);
+                chart.data.datasets[0].data.push(val);
+                
+                if (chart.data.labels.length > 50) {
+                    chart.data.labels.shift();
+                    chart.data.datasets[0].data.shift();
+                }
+                chart.update();
+            }
+            else if (msg.type === "incident") {
+                if (noAlerts) noAlerts.style.display = 'none';
+                
+                const inc = msg.data;
+                const rc = inc.root_cause_analysis.root_cause_candidates[0];
+                const action = inc.safety_recommendation.recommended_actions[0]?.action || "Investigate telemetry manually.";
+                
+                const card = document.createElement('div');
+                card.className = 'alert-card';
+                card.innerHTML = `
+                    <div class="alert-header">
+                        <span class="alert-subsystem">⚠️ ${rc.subsystem} FAULT</span>
+                        <span class="alert-conf">${rc.confidence_score}% Conf</span>
+                    </div>
+                    <div class="alert-text">${inc.explanation}</div>
+                    <div class="alert-action">ACTION: ${action}</div>
+                `;
+                feed.prepend(card);
+                
+                // Flash chart red
+                chart.data.datasets[0].borderColor = '#ef4444';
+                chart.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                setTimeout(() => {
+                    chart.data.datasets[0].borderColor = '#38bdf8';
+                    chart.data.datasets[0].backgroundColor = 'rgba(56, 189, 248, 0.1)';
+                }, 2000);
+            }
+        };
+    </script>
+</body>
+</html>

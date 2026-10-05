@@ -48,9 +48,23 @@ class RootCauseEngine:
                     scores[u] += 1 # u is upstream of v
                     scores[v] -= 1 # v is downstream of u
                     
-        # Sort candidates by score (highest = most upstream)
-        candidates = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        top_candidates = [{"subsystem": sub, "confidence_score": score} for sub, score in candidates]
+        # Normalize scores to percentages
+        if scores:
+            min_score = min(scores.values())
+            max_score = max(scores.values())
+            range_score = max_score - min_score
+            
+            candidates = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+            top_candidates = []
+            for sub, score in candidates:
+                if range_score == 0:
+                    conf = 100.0 if len(candidates) == 1 else round(100.0 / len(candidates), 1)
+                else:
+                    # Scale to 50-99% range based on relative depth
+                    conf = 50.0 + (score - min_score) / range_score * 49.0
+                top_candidates.append({"subsystem": sub, "confidence_score": round(conf, 1)})
+        else:
+            top_candidates = []
         
         # Determine all downstream systems affected by the primary root cause
         downstream = []

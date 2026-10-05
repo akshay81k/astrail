@@ -35,8 +35,7 @@ def get_api_key(api_key_header: str = Depends(api_key_header)):
 
 # CORS
 origins = [
-    "https://dashboard.spacecraft-rca.local",
-    "http://dashboard.spacecraft-rca.local"
+    "*"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -58,23 +57,194 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Model Loading (Strict SHA256 Check)
 models = {}
 
+import numpy as np
+import pandas as pd
+import torch
+from pathlib import Path
+from ..models.gru_forecaster import GRUForecaster
+from ..data.quality import TelemetryQualityProcessor
+from ..models.root_cause import RootCauseEngine
+from ..models.safety_engine import SafetyEngine
+from ..models.explain import ExplainerEngine
+
+data_root = Path("../INITIUM_TECHFEST_2026_27_DATA_PACK")
+rc_engine = RootCauseEngine(data_root)
+safety_engine = SafetyEngine(data_root)
+explainer_engine = ExplainerEngine()
+
+# Global inference state
+inference_state = {
+    "window_buffer": pd.DataFrame(),
+    "quality_processor": None,
+    "gru": None,
+    "cal_p99": None,
+    "best_thresh": 1.022,
+    "sensor_cols": []
+}
+
 @app.on_event("startup")
 async def load_models():
     logger.info("Starting up API, loading models via SHA256 manifest check...")
     try:
-        # Load artifacts securely through utils (which enforces manifest.json SHA256 verification)
-        # Note: If artifacts aren't generated yet or tampered, this will raise an exception.
         models['gru'] = load_artifact("gru_state_dict.safetensors", artifact_type="safetensors")
         logger.info("Successfully verified and loaded models.")
+        
+        # Initialize GRU
+        gru = GRUForecaster(input_dim=50, hidden_dim=64, num_layers=2, output_dim=23, dropout=0.2)
+        gru.load_state_dict(torch.load("artifacts/gru_state_dict.safetensors", weights_only=True))
+        gru.eval()
+        inference_state["gru"] = gru
+        
+        # Load sig catalog
+        sig_cat = pd.read_csv(data_root / "metadata" / "signal_catalog.csv")
+        inference_state["sensor_cols"] = sig_cat['signal'].tolist()
+        
+        # Load quality processor and fit on clean data
+        df_clean = pd.read_csv(data_root / "data" / "synthetic_telemetry_clean.csv")
+        
+        import json
+        with open("artifacts/splits.json") as f:
+            splits = json.load(f)
+        train_idx = splits['train']
+        df_tr = df_clean.iloc[train_idx].copy()
+        
+        qp = TelemetryQualityProcessor(time_grid_freq="1min", max_gap_limit=2)
+        qp.sensor_cols = inference_state["sensor_cols"]
+        qp.fit_scaler(df_tr)
+        inference_state["quality_processor"] = qp
+        
+        # Calculate cal_p99 from calibration split
+        ca_idx = splits['calibration']
+        df_ca = df_clean.iloc[ca_idx].copy()
+        df_ca = qp.transform_scaler(df_ca)
+        
+        modes = ["NOMINAL", "SAFE", "SCIENCE", "ECLIPSE"]
+        def prep_array(df):
+            sc = inference_state["sensor_cols"]
+            X_sens = df[sc].fillna(0).values
+            y = X_sens.copy()
+            mode_oh = np.zeros((len(df), 4))
+            for i, m in enumerate(modes):
+                if 'mode' in df.columns:
+                    mode_oh[:, i] = (df['mode'] == m).astype(float)
+            missing_cols = [f"{c}_is_missing" for c in sc]
+            X_mask = np.zeros((len(df), 23))
+            for i, mc in enumerate(missing_cols):
+                if mc in df.columns: X_mask[:, i] = df[mc].astype(float)
+            return np.concatenate([X_sens, mode_oh, X_mask], axis=1), y
+            
+        X_ca, y_ca = prep_array(df_ca)
+        X_t = torch.tensor(X_ca, dtype=torch.float32)
+        X_w = X_t.unfold(0, 32, 1).transpose(1, 2)[:-1]
+        y_targ = torch.tensor(y_ca[32:], dtype=torch.float32)
+        
+        preds = []
+        with torch.no_grad():
+            for i in range(0, len(X_w), 512):
+                preds.append(gru(X_w[i:i+512]))
+        preds = torch.cat(preds, dim=0)
+        res_ca = torch.abs(preds - y_targ).numpy()
+        cal_p99 = np.percentile(res_ca, 99.9, axis=0)
+        inference_state["cal_p99"] = np.maximum(cal_p99, 1e-4)
+        
     except Exception as e:
         logger.error(f"Failed to load models securely: {e}")
-        # In a real app we might sys.exit(1), but for testing we'll just log
 
 @app.post("/ingest", dependencies=[Depends(get_api_key)])
 async def ingest_telemetry(batch: TelemetryBatch):
     logger.info(f"Received valid batch {batch.batch_id} with {len(batch.data)} rows.")
-    # Here we would route to the detection pipeline
-    return {"status": "accepted", "rows_processed": len(batch.data)}
+    if not inference_state["gru"]:
+        return {"error": "Models not loaded"}
+        
+    # Process incoming rows
+    records = [r.dict() for r in batch.data]
+    df_new = pd.DataFrame([{"timestamp": r['timestamp'], "mode": r['mode'], **r['signals']} for r in records])
+    df_new['timestamp'] = pd.to_datetime(df_new['timestamp'], unit='s')
+    
+    # Append to buffer
+    buf = pd.concat([inference_state["window_buffer"], df_new]).tail(100)
+    inference_state["window_buffer"] = buf
+    
+    if len(buf) < 32:
+        return {"status": "buffering", "rows": len(buf)}
+        
+    # Run inference on the latest 32 window
+    df_proc = buf.copy()
+    sc = inference_state["sensor_cols"]
+    for c in sc:
+        if c not in df_proc.columns:
+            df_proc[c] = 0.0
+        df_proc[f"{c}_is_missing"] = df_proc[c].isna()
+        df_proc[c] = df_proc[c].ffill(limit=2)
+        
+    qp = inference_state["quality_processor"]
+    df_proc = qp.transform_scaler(df_proc)
+    
+    modes = ["NOMINAL", "SAFE", "SCIENCE", "ECLIPSE"]
+    X_sens = df_proc[sc].fillna(0).values
+    y = X_sens.copy()
+    mode_oh = np.zeros((len(df_proc), 4))
+    for i, m in enumerate(modes):
+        if 'mode' in df_proc.columns:
+            mode_oh[:, i] = (df_proc['mode'] == m).astype(float)
+    X_mask = np.zeros((len(df_proc), 23))
+    for i, mc in enumerate([f"{c}_is_missing" for c in sc]):
+        if mc in df_proc.columns: X_mask[:, i] = df_proc[mc].astype(float)
+    X = np.concatenate([X_sens, mode_oh, X_mask], axis=1)
+    
+    # Take last 32 rows for the window
+    X_w = torch.tensor(X[-32:], dtype=torch.float32).unsqueeze(0)
+    gru = inference_state["gru"]
+    with torch.no_grad():
+        pred = gru(X_w)[0].numpy()
+        
+    y_targ = y[-1]
+    res = np.abs(pred - y_targ)
+    score = res / inference_state["cal_p99"]
+    
+    # Check threshold
+    thresh = inference_state["best_thresh"]
+    flagged_idx = np.where(score > thresh)[0]
+    flagged_sensors = [sc[i] for i in flagged_idx]
+    
+    incident = None
+    if flagged_sensors:
+        current_readings = records[-1]['signals']
+        rc = rc_engine.analyze_incident(flagged_sensors)
+        safety = safety_engine.evaluate(flagged_sensors, current_readings)
+        
+        # Format predictions for explainer
+        pred_dict = {sc[i]: float(pred[i]) for i in range(len(sc))}
+        explanation = explainer_engine.generate_explanation(
+            flagged_sensors, current_readings, pred_dict, rc["root_cause_candidates"]
+        )
+        
+        incident = {
+            "timestamp": records[-1]['timestamp'],
+            "anomaly_score_max": float(np.max(score)),
+            "flagged_sensors": flagged_sensors,
+            "root_cause_analysis": rc,
+            "safety_recommendation": safety,
+            "explanation": explanation
+        }
+        
+    # Broadcast to WebSockets
+    await manager.send_incident({
+        "type": "telemetry",
+        "data": records[-1]
+    })
+    
+    if incident:
+        await manager.send_incident({
+            "type": "incident",
+            "data": incident
+        })
+        
+    return {
+        "status": "processed",
+        "rows_processed": len(batch.data),
+        "incident": incident
+    }
 
 # WebSocket Connection Manager with basic rate limiting
 class ConnectionManager:
