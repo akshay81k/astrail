@@ -230,7 +230,7 @@ export const TelemetryProvider = ({ children }) => {
     setActiveAlertId(null);
     setActiveFault(null);
     setIncidentsList([]);
-    setMissionTimeSec(0);
+    setMissionTimeSec(INITIAL_MISSION_TIME_SECONDS);
 
     if (sessionId) {
       await sessionApi.controlSession(sessionId, { action: 'reset' }).catch(() => { });

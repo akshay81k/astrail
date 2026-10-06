@@ -15,7 +15,7 @@ import { useTelemetry } from '../context/TelemetryContext';
 import { FAULT_TYPES } from '../data/faultMetadata';
 import '../components/simulator/Simulator.css';
 
-export default function FaultInjection() {
+export default function Simulator() {
   const navigate = useNavigate();
   const {
     sessionId,

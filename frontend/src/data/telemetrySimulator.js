@@ -1,7 +1,4 @@
-// Real clean telemetry seed provider sourced from synthetic_telemetry_clean.csv
-import realTelemetrySeed from './cleanTelemetrySeed.json';
-
-export const INITIAL_MISSION_TIME_SECONDS = realTelemetrySeed[realTelemetrySeed.length - 1]?.simTime || 1767225600;
+export const INITIAL_MISSION_TIME_SECONDS = 1767225600;
 
 export function formatMissionTime(seconds) {
   if (!seconds) return "00:00:00";
@@ -9,26 +6,34 @@ export function formatMissionTime(seconds) {
   return date.toLocaleTimeString();
 }
 
-// Returns real baseline telemetry records from synthetic_telemetry_clean.csv
+// Returns fallback nominal telemetry if backend fails
 export function generateInitialTelemetry() {
-  return realTelemetrySeed.map((row) => ({
-    simTime: row.simTime,
-    timestamp: row.timestamp,
-    batteryTemp: row.batteryTemp,
-    solarCurrent: row.solarCurrent,
-    powerBusVoltage: row.powerBusVoltage,
-    anomalyScore: row.anomalyScore,
-    threshold: row.threshold,
-    status: row.status,
-    isAnomalyPeak: row.isAnomalyPeak
-  }));
+  return [
+    {
+      simTime: INITIAL_MISSION_TIME_SECONDS,
+      timestamp: formatMissionTime(INITIAL_MISSION_TIME_SECONDS),
+      batteryTemp: 21.8,
+      solarCurrent: 3.10,
+      powerBusVoltage: 28.2,
+      anomalyScore: 0.08,
+      threshold: 1.022,
+      status: 'NOMINAL',
+      isAnomalyPeak: false
+    }
+  ];
 }
 
 export function generateNextPoint(prevSec, lastPoint) {
-  const seed = realTelemetrySeed[0] || {};
+  const simTime = (prevSec || INITIAL_MISSION_TIME_SECONDS) + 1;
   return {
-    ...seed,
-    simTime: (prevSec || 0) + 1,
-    timestamp: formatMissionTime((prevSec || 0) + 1)
+    simTime,
+    timestamp: formatMissionTime(simTime),
+    batteryTemp: 21.8,
+    solarCurrent: 3.10,
+    powerBusVoltage: 28.2,
+    anomalyScore: 0.08,
+    threshold: 1.022,
+    status: 'NOMINAL',
+    isAnomalyPeak: false
   };
 }

@@ -9,7 +9,7 @@ export const FAULT_TYPES = [
     description: 'Reduced solar array output and power generation',
     icon: Sun,
     iconColorClass: 'yellow',
-    backendType: 'solar_array_degradation',
+    backendType: 'solar_degradation',
     backendTarget: 'solar_current',
     expectedEffect: 'Reduced solar array output, lower solar current, leading to downstream power and thermal effects.',
     propagationChain: [
@@ -27,7 +27,7 @@ export const FAULT_TYPES = [
     description: 'Continuous heating leading to thermal increase',
     icon: Flame,
     iconColorClass: 'red',
-    backendType: 'heater_relay_failure',
+    backendType: 'heater_stuck_on',
     backendTarget: 'battery_temp',
     expectedEffect: 'Uncontrolled heating, elevated battery temperature, potential thermal runaway risk.',
     propagationChain: [
@@ -45,7 +45,7 @@ export const FAULT_TYPES = [
     description: 'Reduced battery capacity and charge efficiency',
     icon: Battery,
     iconColorClass: 'slate',
-    backendType: 'battery_cell_degradation',
+    backendType: 'battery_degradation',
     backendTarget: 'battery_charge',
     expectedEffect: 'Accelerated charge loss, reduced energy storage capability, lower operating margins.',
     propagationChain: [
@@ -98,7 +98,7 @@ export const FAULT_TYPES = [
     description: 'Increased friction and power consumption',
     icon: Disc,
     iconColorClass: 'green',
-    backendType: 'reaction_wheel_friction',
+    backendType: 'wheel_friction',
     backendTarget: 'wheel_speed_rpm',
     expectedEffect: 'Increased motor current, rotational resistance, and localized thermal dissipation.',
     propagationChain: [

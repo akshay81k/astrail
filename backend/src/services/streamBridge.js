@@ -190,6 +190,9 @@ class SessionStreamBridge {
             rankedCauses: inc.rankedCauses,
             confidence: inc.confidence,
             affectedSubsystems: inc.affectedSubsystems,
+            graph: inc.graph,
+            propagation: inc.propagation,
+            evidence: inc.evidence,
           };
           liveHub.emitToSession(this.sessionId, "incident:created", incPayload);
           liveHub.emitGlobal("incident:created", incPayload);

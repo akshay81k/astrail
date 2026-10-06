@@ -34,8 +34,14 @@ export function normalizeTelemetryFrame(frame) {
     points.push({
       simTime: sec,
       timestamp,
-      batteryTemp: parseFloat(Number(batteryTemp).toFixed(1)),
-      solarCurrent: parseFloat(Number(solarCurrent).toFixed(1)),
+      batteryTemp: parseFloat(Number(batteryTemp).toFixed(2)),
+      solarCurrent: parseFloat(Number(solarCurrent).toFixed(2)),
+      busVoltage: parseFloat(Number(frame.channels?.bus_voltage?.[i] ?? 28.2).toFixed(2)),
+      batterySoc: parseFloat(Number(frame.channels?.battery_soc?.[i] ?? 76.8).toFixed(2)),
+      wheelSpeed: parseFloat(Number(frame.channels?.wheel_speed?.[i] ?? 1800.0).toFixed(0)),
+      panelTemp: parseFloat(Number(frame.channels?.panel_temp?.[i] ?? 24.1).toFixed(2)),
+      avionicsTemp: parseFloat(Number(frame.channels?.avionics_temp?.[i] ?? 19.0).toFixed(2)),
+      regime: frame.regime?.[i] ?? 'sunlight',
       anomalyScore: parseFloat(Number(anomalyScore).toFixed(2)),
       threshold: parseFloat(Number(threshold).toFixed(2)),
       status,
@@ -163,6 +169,7 @@ export function normalizeIncident(inc) {
   else if (severity === "WARNING") colorClass = "amber";
 
   return {
+    ...inc,
     id: inc.id || inc._id,
     severity,
     time: formatMissionTime(inc.openedAtSim || 0),
