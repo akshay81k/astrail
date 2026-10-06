@@ -81,11 +81,11 @@ class TimeToLimitProjector:
 
     def evaluate(self, window_df: pd.DataFrame, top_channels: List[str], alpha: float = 0.80) -> Dict:
         """
-        Evaluate time-to-limit on top residual channels (up to 3).
-        Returns aggregated TTL projection or 'no crossing projected'.
+        Evaluate time-to-limit on top residual channels (up to 5).
+        Returns aggregated earliest TTL projection or 'no crossing projected'.
         """
         projections = []
-        for ch in top_channels[:3]:
+        for ch in top_channels[:5]:
             if ch in window_df.columns:
                 proj = self.project_channel(window_df[ch].values, ch, alpha=alpha)
                 if proj is not None:
@@ -96,7 +96,7 @@ class TimeToLimitProjector:
                 "status": "no crossing projected",
                 "median_rows": None,
                 "range_80": None,
-                "evaluated_channels": top_channels[:3],
+                "evaluated_channels": top_channels[:5],
                 "channel_projections": []
             }
 
@@ -110,6 +110,6 @@ class TimeToLimitProjector:
             "median_rows": primary_proj["median_rows"],
             "range_80": primary_proj["range_80"],
             "critical_channel": primary_proj["channel"],
-            "evaluated_channels": top_channels[:3],
+            "evaluated_channels": top_channels[:5],
             "channel_projections": projections
         }

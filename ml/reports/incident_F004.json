@@ -1,0 +1,101 @@
+{
+  "fault_id": "F004",
+  "alert_row": 40510,
+  "timestamp": "2026-01-29 03:10:00",
+  "anomaly_score_max": 10.215,
+  "flagged_sensors": [
+    "packet_loss_pct"
+  ],
+  "root_cause_analysis": {
+    "root_cause_candidates": [
+      {
+        "subsystem": "COMMUNICATIONS",
+        "confidence_score": 100.0
+      }
+    ],
+    "downstream_impact": [
+      "COMPUTE"
+    ],
+    "flagged_subsystems": [
+      "COMMUNICATIONS"
+    ],
+    "fault_classification": "Subsystem Fault",
+    "confidence_reasons": [
+      "Detector Margin: 1.20",
+      "Data Quality: 1.00",
+      "Rank Gap: 1.00"
+    ]
+  },
+  "safety_recommendation": {
+    "overall_risk": "MEDIUM",
+    "recommended_actions": [
+      {
+        "signal": "packet_loss_pct",
+        "risk": "MEDIUM",
+        "action": "Investigate anomalous telemetry behavior"
+      }
+    ]
+  },
+  "evidence": {
+    "onset_order": [
+      "packet_loss_pct"
+    ],
+    "per_channel_sigma": {
+      "packet_loss_pct": 10.2
+    },
+    "neighbors_flagged": [
+      "COMPUTE"
+    ],
+    "data_quality": {
+      "status": "VALID",
+      "valid_channels": 21,
+      "total_channels": 23,
+      "ok_fraction": 0.913,
+      "per_channel_status": {
+        "power_bus_voltage_V": "OK",
+        "power_bus_current_A": "OK",
+        "solar_array_current_A": "OK",
+        "battery_soc_pct": "OK",
+        "battery_temperature_C": "OK",
+        "eps_temperature_C": "OK",
+        "payload_temperature_C": "OK",
+        "radiator_temperature_C": "OK",
+        "imu_accel_x_mps2": "OK",
+        "imu_accel_y_mps2": "OK",
+        "imu_accel_z_mps2": "OK",
+        "gyro_x_deg_s": "OK",
+        "gyro_y_deg_s": "OK",
+        "gyro_z_deg_s": "OK",
+        "reaction_wheel_speed_rpm": "NOISY",
+        "comm_rx_dbm": "OK",
+        "comm_tx_dbm": "OK",
+        "packet_loss_pct": "OK",
+        "cpu_utilization_pct": "MISSING",
+        "memory_utilization_pct": "OK",
+        "radiation_rate_counts_s": "OK",
+        "payload_power_W": "OK",
+        "data_queue_MB": "OK"
+      }
+    },
+    "limit_status": {
+      "within_limits": false,
+      "closest_signal": "packet_loss_pct",
+      "margin_pct": 23.0
+    },
+    "runner_up": {
+      "subsystem": "NONE",
+      "confidence_score": 0.0,
+      "delta_score": 100.0
+    },
+    "time_to_limit": {
+      "status": "PROJECTED",
+      "confidence_pct": 80,
+      "median_rows": 279.4,
+      "range_80": [
+        209.0,
+        457.3
+      ]
+    }
+  },
+  "explanation": "packet_loss_pct exhibits 10.2 sigma deviation. Data quality is VALID across 21 of 23 channels with operational limit margin is 23.0%. The runner-up candidate NONE has 0.0% confidence with 100.0% margin gap. projected time-to-limit is 279.4 rows (80% range: 209.0 to 457.3 rows)."
+}

@@ -302,12 +302,30 @@ async def ingest_telemetry(batch: TelemetryBatch):
             "margin_pct": margin_pct
         }
         
+        # Query quality layer for per-channel status in {OK, DELAYED, MISSING, NOISY} and fraction
+        qp = inference_state.get("quality_processor")
+        if qp:
+            ch_statuses, ok_frac = qp.compute_channel_quality_status(buf)
+            valid_ch = int(round(ok_frac * len(sc)))
+            dq_dict = {
+                "status": "VALID" if ok_frac > 0.8 else "DEGRADED",
+                "valid_channels": valid_ch,
+                "total_channels": len(sc),
+                "ok_fraction": ok_frac,
+                "per_channel_status": ch_statuses
+            }
+        else:
+            dq_dict = {
+                "status": "VALID", "valid_channels": len(sc) if sc else 23, "total_channels": len(sc) if sc else 23,
+                "ok_fraction": 1.0, "per_channel_status": {c: "OK" for c in sc}
+            }
+            
         # Build Evidence JSON
         evidence = explainer_engine.build_evidence(
             onset_order=flagged_sensors,
             per_channel_sigma=sigmas,
             neighbors_flagged=rc.get("downstream_impact", [])[:3],
-            data_quality={"status": "VALID", "valid_channels": 23, "total_channels": 23},
+            data_quality=dq_dict,
             limit_status=limit_status,
             runner_up=ru_dict,
             time_to_limit=ttl_res

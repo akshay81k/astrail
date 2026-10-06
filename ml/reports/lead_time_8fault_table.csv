@@ -1,9 +1,9 @@
-fault_id,fault_type,limit_alarm_row,our_alert_row,lead_rows,first_aff_limit_cross,lead_vs_hazard
-F001,thermal_runaway,none,12030,never,never,never
-F002,battery_degradation,22000,22002,-2,22000 (power_bus_voltage_V),-2 rows
-F003,reaction_wheel_stiction,31001,31003,-2,31001 (gyro_x_deg_s),-2 rows
-F004,communication_degradation,40506,40510,-4,40506 (packet_loss_pct),-4 rows
-F005,radiation_upset,50006,50010,-4,50006 (packet_loss_pct),-4 rows
-F006,payload_overload,61155,61098,+57,61155 (payload_power_W),+57 rows
-F007,sensor_bias,69000,69002,-2,69000 (imu_accel_x_mps2),-2 rows
-F008,power_bus_instability,74501,74503,-2,74501 (power_bus_voltage_V),-2 rows
+fault_id,fault_type,limit_alarm_row,our_alert_row,lead_rows,first_aff_limit_cross
+F001,thermal_runaway,none,12030,never,never
+F002,battery_degradation,22000,22002,-2,22000 (power_bus_voltage_V)
+F003,reaction_wheel_stiction,31001,31003,-2,31001 (gyro_x_deg_s)
+F004,communication_degradation,40506,40510,-4,40506 (packet_loss_pct)
+F005,radiation_upset,50006,50010,-4,50006 (packet_loss_pct)
+F006,payload_overload,61155,61098,+57,61155 (payload_power_W)
+F007,sensor_bias,69000,69002,-2,69000 (imu_accel_x_mps2)
+F008,power_bus_instability,74501,74503,-2,74501 (power_bus_voltage_V)

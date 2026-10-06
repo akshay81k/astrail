@@ -1,0 +1,113 @@
+{
+  "fault_id": "F006",
+  "alert_row": 61098,
+  "timestamp": "2026-02-12 10:18:00",
+  "anomaly_score_max": 1.019,
+  "flagged_sensors": [
+    "battery_soc_pct",
+    "cpu_utilization_pct"
+  ],
+  "root_cause_analysis": {
+    "root_cause_candidates": [
+      {
+        "subsystem": "POWER",
+        "confidence_score": 58.8
+      },
+      {
+        "subsystem": "COMPUTE",
+        "confidence_score": 50.0
+      }
+    ],
+    "downstream_impact": [
+      "PAYLOAD",
+      "THERMAL",
+      "COMPUTE"
+    ],
+    "flagged_subsystems": [
+      "COMPUTE",
+      "POWER"
+    ],
+    "fault_classification": "Subsystem Fault",
+    "confidence_reasons": [
+      "Detector Margin: 1.20",
+      "Data Quality: 1.00",
+      "Rank Gap: 0.49"
+    ]
+  },
+  "safety_recommendation": {
+    "overall_risk": "MEDIUM",
+    "recommended_actions": [
+      {
+        "signal": "battery_soc_pct",
+        "risk": "MEDIUM",
+        "action": "Investigate anomalous telemetry behavior"
+      }
+    ]
+  },
+  "evidence": {
+    "onset_order": [
+      "battery_soc_pct",
+      "cpu_utilization_pct"
+    ],
+    "per_channel_sigma": {
+      "battery_soc_pct": 1.0,
+      "cpu_utilization_pct": 1.0
+    },
+    "neighbors_flagged": [
+      "PAYLOAD",
+      "THERMAL",
+      "COMPUTE"
+    ],
+    "data_quality": {
+      "status": "VALID",
+      "valid_channels": 22,
+      "total_channels": 23,
+      "ok_fraction": 0.957,
+      "per_channel_status": {
+        "power_bus_voltage_V": "OK",
+        "power_bus_current_A": "OK",
+        "solar_array_current_A": "OK",
+        "battery_soc_pct": "OK",
+        "battery_temperature_C": "OK",
+        "eps_temperature_C": "OK",
+        "payload_temperature_C": "OK",
+        "radiator_temperature_C": "OK",
+        "imu_accel_x_mps2": "OK",
+        "imu_accel_y_mps2": "OK",
+        "imu_accel_z_mps2": "OK",
+        "gyro_x_deg_s": "OK",
+        "gyro_y_deg_s": "OK",
+        "gyro_z_deg_s": "OK",
+        "reaction_wheel_speed_rpm": "NOISY",
+        "comm_rx_dbm": "OK",
+        "comm_tx_dbm": "OK",
+        "packet_loss_pct": "OK",
+        "cpu_utilization_pct": "OK",
+        "memory_utilization_pct": "OK",
+        "radiation_rate_counts_s": "OK",
+        "payload_power_W": "OK",
+        "data_queue_MB": "OK"
+      }
+    },
+    "limit_status": {
+      "within_limits": true,
+      "closest_signal": "battery_soc_pct",
+      "margin_pct": 21.3
+    },
+    "runner_up": {
+      "subsystem": "COMPUTE",
+      "confidence_score": 50.0,
+      "delta_score": 8.8
+    },
+    "time_to_limit": {
+      "status": "PROJECTED",
+      "confidence_pct": 80,
+      "median_rows": 153.4,
+      "range_80": [
+        109.8,
+        263.2
+      ]
+    }
+  },
+  "explanation": "battery_soc_pct exhibits 1.0 sigma deviation. Data quality is VALID across 22 of 23 channels with operational limit margin is 21.3%. The runner-up candidate COMPUTE has 50.0% confidence with 8.8% margin gap. projected time-to-limit is 153.4 rows (80% range: 109.8 to 263.2 rows)."
+}

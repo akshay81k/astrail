@@ -38,7 +38,9 @@ class ExplainerEngine:
         clean_dq = {
             "status": str(data_quality.get("status", "VALID")),
             "valid_channels": int(data_quality.get("valid_channels", 23)),
-            "total_channels": int(data_quality.get("total_channels", 23))
+            "total_channels": int(data_quality.get("total_channels", 23)),
+            "ok_fraction": round(float(data_quality.get("ok_fraction", 1.0)), 3),
+            "per_channel_status": dict(data_quality.get("per_channel_status", {}))
         }
 
         clean_ttl = {

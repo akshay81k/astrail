@@ -19,9 +19,8 @@ class RootCauseEngine:
             
         # Build DAG
         self.G = nx.DiGraph()
-        for _, row in self.dep_graph.iterrows():
-            self.G.add_edge(row['source_subsystem'], row['target_subsystem'], 
-                            mechanism=row.get('coupling_mechanism', 'unknown'))
+        for row in self.dep_graph.itertuples(index=False):
+            self.G.add_edge(row[0], row[1], mechanism=getattr(row, 'coupling_mechanism', 'unknown'))
             
     def analyze_incident(self, flagged_sensors: List[str]) -> Dict:
         """

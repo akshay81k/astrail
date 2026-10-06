@@ -19,8 +19,8 @@ class IForestForecaster:
         # Create mapping of subsystem dependencies
         self.edges = []
         if self.dependency_graph_df is not None:
-            for _, row in self.dependency_graph_df.iterrows():
-                self.edges.append((row['source_subsystem'], row['target_subsystem']))
+            for row in self.dependency_graph_df.itertuples(index=False):
+                self.edges.append((row[0], row[1]))
                 
     def extract_features(self, df: pd.DataFrame, signal_catalog_df: pd.DataFrame = None) -> pd.DataFrame:
         """
