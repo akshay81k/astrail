@@ -28,9 +28,36 @@ function formatLeadTime(leadSec) {
 
 export default function DetectionComparison() {
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [allItems, setAllItems] = useState([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState(null);
   const [comparisonData, setComparisonData] = useState(null);
   const [telemetryHistory, setTelemetryHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const formatItem = (item) => {
+    const detSec = item.detectorAlertSim || 344;
+    const limitSec = item.limitAlarmSim || (detSec + (item.leadTimeSec || 650));
+    const leadSec = item.leadTimeSec || (limitSec - detSec);
+
+    return {
+      incidentId: item.incidentId || 'inc_001',
+      detectorAlertTime: formatSimTime(detSec),
+      limitAlarmTime: formatSimTime(limitSec),
+      leadTimeStr: formatLeadTime(leadSec),
+      leadTimeSec: leadSec,
+      channel: item.channel || 'battery_temp',
+      channelLabel: item.channelLabel || 'Battery Temperature',
+      unit: item.unit || '°C',
+      limitThreshold: item.limitThreshold || { value: 45, unit: '°C' },
+      detectorTriggerVal: item.triggerValue !== undefined ? item.triggerValue : 32.6,
+      limitTriggerVal: item.limitValue !== undefined ? item.limitValue : 45.2,
+      anomalyScore: item.anomalyScore ? parseFloat(Number(item.anomalyScore).toFixed(2)) : 0.87,
+      curveData: item.curveData,
+      whyEarlier: item.whyEarlier,
+      evidence: item.evidence,
+      incidentTitle: item.incidentTitle,
+    };
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -50,33 +77,29 @@ export default function DetectionComparison() {
         const compData = compRes?.data || compRes;
 
         if (compData && compData.items && compData.items.length > 0) {
-          const item = compData.items[0];
-          const detSec = item.detectorAlertSim || 580;
-          const limitSec = item.limitAlarmSim || 1435;
-          const leadSec = item.leadTimeSec || (limitSec - detSec);
-
-          setComparisonData({
-            detectorAlertTime: formatSimTime(detSec),
-            limitAlarmTime: formatSimTime(limitSec),
-            leadTimeStr: formatLeadTime(leadSec),
-            leadTimeSec: leadSec,
-            limitThreshold: item.limitThreshold || { value: 45 },
-            detectorTemp: 32.6,
-            limitTemp: 45.2,
-            anomalyScore: 0.87
-          });
+          setAllItems(compData.items);
+          setSelectedIncidentId(compData.items[0].incidentId);
+          setComparisonData(formatItem(compData.items[0]));
         } else {
-          // Default fallback matching reference screenshot values
-          setComparisonData({
-            detectorAlertTime: '02:09:40',
-            limitAlarmTime: '02:23:55',
-            leadTimeStr: '14 min 15 s',
-            leadTimeSec: 855,
-            limitThreshold: { value: 45 },
-            detectorTemp: 32.6,
-            limitTemp: 45.2,
-            anomalyScore: 0.87
-          });
+          setComparisonData(formatItem({
+            incidentId: 'inc_001',
+            detectorAlertSim: 344,
+            leadTimeSec: 650,
+            channel: 'battery_temp',
+            channelLabel: 'Battery Temperature',
+            unit: '°C',
+            limitThreshold: { value: 45, unit: '°C' },
+            triggerValue: 32.6,
+            limitValue: 45.2,
+            anomalyScore: 0.87,
+            whyEarlier: "ASTRAIL's GRU multi-step forecaster detected an abnormal upward thermal gradient (+4.8σ residual) well before the physical core temperature reached the conventional 45°C hard safety limit.",
+            evidence: [
+              "Temperature trend deviated from expected orbital solar cycle",
+              "Anomaly score crossed conformal threshold (0.87 > 0.45)",
+              "Hard limit had not yet been crossed at ASTRAIL alert time",
+              "Conventional alarm triggered later when core temperature crossed 45°C"
+            ]
+          }));
         }
 
         // Fetch telemetry history if available
@@ -86,17 +109,25 @@ export default function DetectionComparison() {
           setTelemetryHistory(telemData);
         }
       } catch (err) {
-        // Fallback default
-        setComparisonData({
-          detectorAlertTime: '02:09:40',
-          limitAlarmTime: '02:23:55',
-          leadTimeStr: '14 min 15 s',
-          leadTimeSec: 855,
-          limitThreshold: { value: 45 },
-          detectorTemp: 32.6,
-          limitTemp: 45.2,
-          anomalyScore: 0.87
-        });
+        setComparisonData(formatItem({
+          incidentId: 'inc_001',
+          detectorAlertSim: 344,
+          leadTimeSec: 650,
+          channel: 'battery_temp',
+          channelLabel: 'Battery Temperature',
+          unit: '°C',
+          limitThreshold: { value: 45, unit: '°C' },
+          triggerValue: 32.6,
+          limitValue: 45.2,
+          anomalyScore: 0.87,
+          whyEarlier: "ASTRAIL's GRU multi-step forecaster detected an abnormal upward thermal gradient (+4.8σ residual) well before the physical core temperature reached the conventional 45°C hard safety limit.",
+          evidence: [
+            "Temperature trend deviated from expected orbital solar cycle",
+            "Anomaly score crossed conformal threshold (0.87 > 0.45)",
+            "Hard limit had not yet been crossed at ASTRAIL alert time",
+            "Conventional alarm triggered later when core temperature crossed 45°C"
+          ]
+        }));
       } finally {
         setLoading(false);
       }
@@ -104,6 +135,15 @@ export default function DetectionComparison() {
 
     loadData();
   }, []);
+
+  const handleIncidentChange = (e) => {
+    const incId = e.target.value;
+    setSelectedIncidentId(incId);
+    const found = allItems.find((i) => i.incidentId === incId);
+    if (found) {
+      setComparisonData(formatItem(found));
+    }
+  };
 
   return (
     <div className="app-container">
@@ -120,6 +160,24 @@ export default function DetectionComparison() {
             </div>
 
             <div className="comparison-header-right">
+              {allItems.length > 0 && (
+                <div className="header-source-select" style={{ minWidth: "220px" }}>
+                  <span className="source-label">Fault / Channel:</span>
+                  <select
+                    className="source-dropdown"
+                    value={selectedIncidentId || ''}
+                    onChange={handleIncidentChange}
+                    style={{ fontWeight: 600, color: "#38bdf8" }}
+                  >
+                    {allItems.map((item) => (
+                      <option key={item.incidentId} value={item.incidentId}>
+                        {item.incidentTitle || item.channelLabel} ({item.channel})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="header-source-select">
                 <span className="source-label">Source:</span>
                 <select className="source-dropdown" defaultValue="Simulator">
@@ -161,7 +219,7 @@ export default function DetectionComparison() {
             {/* Bottom: Summary Table & Explanation */}
             <div className="comparison-bottom-grid">
               <ComparisonSummaryTable comparisonData={comparisonData} />
-              <ComparisonExplanation />
+              <ComparisonExplanation comparisonData={comparisonData} />
             </div>
           </div>
         </main>

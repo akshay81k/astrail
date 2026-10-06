@@ -2,11 +2,14 @@ import React from 'react';
 import { FileText, Info } from 'lucide-react';
 
 export default function ComparisonSummaryTable({ comparisonData }) {
-  const detectorTimeStr = comparisonData?.detectorAlertTime || '02:09:40';
-  const limitAlarmTimeStr = comparisonData?.limitAlarmTime || '02:23:55';
-  const leadTimeStr = comparisonData?.leadTimeStr || '14 min 15 s';
-  const detectorTemp = comparisonData?.detectorTemp || 32.6;
-  const limitTemp = comparisonData?.limitTemp || 45.2;
+  const channelLabel = comparisonData?.channelLabel || 'Battery Temperature';
+  const unit = comparisonData?.unit || '°C';
+  const detectorTimeStr = comparisonData?.detectorAlertTime || '02:05:44';
+  const limitAlarmTimeStr = comparisonData?.limitAlarmTime || '02:16:34';
+  const leadTimeStr = comparisonData?.leadTimeStr || '10 min 50 s';
+  const detectorVal = comparisonData?.detectorTriggerVal !== undefined ? comparisonData.detectorTriggerVal : 32.6;
+  const limitVal = comparisonData?.limitTriggerVal !== undefined ? comparisonData.limitTriggerVal : 45.2;
+  const hardLimitVal = comparisonData?.limitThreshold?.value !== undefined ? comparisonData.limitThreshold.value : 45;
   const scoreStr = comparisonData?.anomalyScore ? `${comparisonData.anomalyScore} (threshold 0.45)` : '0.87 (threshold 0.45)';
 
   return (
@@ -36,13 +39,13 @@ export default function ComparisonSummaryTable({ comparisonData }) {
             </tr>
             <tr>
               <td className="metric-col">Trigger Condition</td>
-              <td className="val-col">Anomaly pattern (trend)</td>
-              <td className="val-col">Hard threshold (&gt; 45°C)</td>
+              <td className="val-col">Anomaly pattern (trend / conformal P99)</td>
+              <td className="val-col">Hard threshold ({hardLimitVal} {unit})</td>
             </tr>
             <tr>
-              <td className="metric-col">Temperature at Trigger</td>
-              <td className="val-col font-mono">{detectorTemp}°C</td>
-              <td className="val-col font-mono">{limitTemp}°C</td>
+              <td className="metric-col">{channelLabel} at Trigger</td>
+              <td className="val-col font-mono">{detectorVal} {unit}</td>
+              <td className="val-col font-mono">{limitVal} {unit}</td>
             </tr>
             <tr>
               <td className="metric-col">Lead Time</td>

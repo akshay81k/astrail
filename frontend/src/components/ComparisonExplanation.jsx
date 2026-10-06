@@ -8,7 +8,16 @@ const DEFAULT_EVIDENCE = [
   'Conventional alarm triggered later when temperature exceeded 45°C'
 ];
 
-export default function ComparisonExplanation() {
+export default function ComparisonExplanation({ comparisonData }) {
+  const whyEarlierText =
+    comparisonData?.whyEarlier ||
+    "ASTRAIL's GRU multi-step forecaster detected an abnormal upward thermal gradient (+4.8σ residual) based on trend and multi-sensor correlation, well before the physical parameter reached the conventional hard safety limit.";
+
+  const evidenceList =
+    comparisonData?.evidence && comparisonData.evidence.length > 0
+      ? comparisonData.evidence
+      : DEFAULT_EVIDENCE;
+
   return (
     <div className="card comparison-explanation-card">
       <div className="card-header-row">
@@ -19,9 +28,7 @@ export default function ComparisonExplanation() {
       </div>
 
       <div className="explanation-body-text">
-        <p>
-          ASTRAIL detected an abnormal increase in battery temperature based on the trend and multi-sensor analysis, well before the temperature crossed the conventional hard safety limit. The traditional limit checking system only generated an alarm after the threshold was exceeded.
-        </p>
+        <p>{whyEarlierText}</p>
       </div>
 
       <div className="key-evidence-sub-section">
@@ -29,10 +36,10 @@ export default function ComparisonExplanation() {
           <CheckCircle2 size={16} className="text-green" /> Key Evidence
         </h4>
         <ul className="evidence-checklist">
-          {DEFAULT_EVIDENCE.map((item, idx) => (
+          {evidenceList.map((item, idx) => (
             <li key={idx} className="evidence-check-item">
               <CheckCircle2 size={15} className="check-icon" />
-              <span>{item}</span>
+              <span>{typeof item === 'string' ? item : item.text || item.label}</span>
             </li>
           ))}
         </ul>

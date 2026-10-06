@@ -2,10 +2,14 @@ import React from 'react';
 import { Activity, Clock, AlertTriangle, Thermometer, Info } from 'lucide-react';
 
 export default function DetectionMetrics({ comparisonData }) {
-  const detectorTimeStr = comparisonData?.detectorAlertTime || '02:09:40';
-  const limitAlarmTimeStr = comparisonData?.limitAlarmTime || '02:23:55';
-  const leadTimeStr = comparisonData?.leadTimeStr || '14 min 15 s';
-  const hardLimitStr = comparisonData?.limitThreshold?.value ? `${comparisonData.limitThreshold.value}°C` : '45°C';
+  const detectorTimeStr = comparisonData?.detectorAlertTime || '02:05:44';
+  const limitAlarmTimeStr = comparisonData?.limitAlarmTime || '02:16:34';
+  const leadTimeStr = comparisonData?.leadTimeStr || '10 min 50 s';
+  const channelLabel = comparisonData?.channelLabel || 'Battery temperature';
+  const unit = comparisonData?.unit || '°C';
+  const hardLimitStr = comparisonData?.limitThreshold?.value !== undefined 
+    ? `${comparisonData.limitThreshold.value} ${unit}` 
+    : `45 ${unit}`;
 
   return (
     <div className="detection-metrics-grid">
@@ -55,7 +59,7 @@ export default function DetectionMetrics({ comparisonData }) {
         <div className="kpi-content">
           <span className="kpi-label">HARD LIMIT</span>
           <h2 className="kpi-value">{hardLimitStr}</h2>
-          <span className="kpi-sub">Battery temperature threshold</span>
+          <span className="kpi-sub">{channelLabel} safety limit</span>
         </div>
       </div>
     </div>

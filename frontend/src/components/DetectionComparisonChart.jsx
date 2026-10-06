@@ -5,36 +5,34 @@ import { LineChart, Maximize2 } from 'lucide-react';
 export default function DetectionComparisonChart({ comparisonData, telemetryHistory = [] }) {
   const [timeRange, setTimeRange] = useState('30m');
 
-  // Extract or fallback baseline values
-  const detectorTimeStr = comparisonData?.detectorAlertTime || '02:09:40';
-  const limitAlarmTimeStr = comparisonData?.limitAlarmTime || '02:23:55';
-  const leadTimeStr = comparisonData?.leadTimeStr || '14 min 15 s';
-  const hardLimitValue = comparisonData?.limitThreshold?.value || 45;
-  const detectorTemp = comparisonData?.detectorTemp || 32.6;
-  const limitTemp = comparisonData?.limitTemp || 45.2;
+  // Extract real dynamic or fallback baseline values
+  const channelLabel = comparisonData?.channelLabel || 'Battery Temperature';
+  const unit = comparisonData?.unit || '°C';
+  const detectorTimeStr = comparisonData?.detectorAlertTime || '02:05:44';
+  const limitAlarmTimeStr = comparisonData?.limitAlarmTime || '02:16:34';
+  const leadTimeStr = comparisonData?.leadTimeStr || '10 min 50 s';
+  const hardLimitValue = comparisonData?.limitThreshold?.value !== undefined ? comparisonData.limitThreshold.value : 45;
+  const detectorTriggerVal = comparisonData?.detectorTriggerVal !== undefined ? comparisonData.detectorTriggerVal : 32.6;
+  const limitTriggerVal = comparisonData?.limitTriggerVal !== undefined ? comparisonData.limitTriggerVal : 45.2;
+  const anomalyScore = comparisonData?.anomalyScore !== undefined ? comparisonData.anomalyScore : 0.87;
 
-  // Generate smooth telemetry time series if history is loading
+  // Generate telemetry time series
   const timePoints = [];
   const tempValues = [];
 
-  if (telemetryHistory.length > 0) {
-    telemetryHistory.forEach((t) => {
-      timePoints.push(t.timestamp || t.time);
-      tempValues.push(t.batteryTemp || t.value);
-    });
-  } else {
-    // Standard mock curve matching the reference screenshot
-    const times = [
-      '02:00', '02:02', '02:04', '02:06', '02:08', '02:09:40',
-      '02:12', '02:15', '02:18', '02:21', '02:23:55', '02:27', '02:30'
-    ];
-    const temps = [25.0, 25.5, 26.1, 26.8, 28.5, 32.6, 34.0, 36.2, 39.5, 42.8, 45.2, 47.8, 48.5];
+  const defaultTimes = [
+    '02:00', '02:02', '02:04', '02:05:44', '02:08', '02:10',
+    '02:12', '02:14', '02:16:34', '02:18', '02:21', '02:25', '02:30'
+  ];
+  const curve = comparisonData?.curveData || [25.0, 25.5, 26.1, 32.6, 34.0, 36.2, 39.5, 42.8, 45.2, 47.8, 48.5, 49.0, 49.5];
 
-    times.forEach((t, i) => {
-      timePoints.push(t);
-      tempValues.push(temps[i]);
-    });
-  }
+  defaultTimes.forEach((t, i) => {
+    timePoints.push(t);
+    tempValues.push(curve[i] !== undefined ? curve[i] : curve[curve.length - 1]);
+  });
+
+  const yMin = Math.min(...tempValues, hardLimitValue) * 0.85;
+  const yMax = Math.max(...tempValues, hardLimitValue) * 1.15;
 
   const option = {
     animationDuration: 500,
@@ -55,20 +53,20 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
         const val = item.value;
         const time = item.axisValue;
         let note = '';
-        if (time === detectorTimeStr) note = '<div style="color: #A855F7; font-weight: bold; margin-top: 4px;">★ OUR SYSTEM ALERT (Anomaly Pattern)</div>';
-        else if (time === limitAlarmTimeStr) note = '<div style="color: #EF4444; font-weight: bold; margin-top: 4px;">⚠ LIMIT ALARM (> 45°C Threshold)</div>';
+        if (time === detectorTimeStr) note = '<div style="color: #A855F7; font-weight: bold; margin-top: 4px;">★ ASTRAIL ML ALERT (Anomaly Pattern)</div>';
+        else if (time === limitAlarmTimeStr) note = `<div style="color: #EF4444; font-weight: bold; margin-top: 4px;">⚠ LIMIT ALARM (Hard ${hardLimitValue} ${unit} Limit Crossed)</div>`;
 
         return `
           <div style="font-weight: 700; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 2px;">
             Mission Time: ${time}
           </div>
           <div style="display: flex; justify-content: space-between; gap: 16px;">
-            <span>Battery Temp:</span>
-            <strong style="color: #60A5FA;">${val} °C</strong>
+            <span>${channelLabel}:</span>
+            <strong style="color: #60A5FA;">${val} ${unit}</strong>
           </div>
           <div style="display: flex; justify-content: space-between; gap: 16px; margin-top: 2px;">
-            <span>Hard Limit:</span>
-            <strong style="color: #F87171;">45 °C</strong>
+            <span>Hard Safety Limit:</span>
+            <strong style="color: #F87171;">${hardLimitValue} ${unit}</strong>
           </div>
           ${note}
         `;
@@ -88,13 +86,12 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
     },
     yAxis: {
       type: 'value',
-      name: 'Temperature (°C)',
+      name: `${channelLabel} (${unit})`,
       nameLocation: 'middle',
       nameGap: 38,
       nameTextStyle: { color: '#64748B', fontSize: 12, fontWeight: '700' },
-      min: 15,
-      max: 55,
-      interval: 10,
+      min: parseFloat(yMin.toFixed(1)),
+      max: parseFloat(yMax.toFixed(1)),
       axisLine: { show: false },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#F1F5F9' } },
@@ -104,7 +101,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
       {
         name: 'Early Warning Area',
         type: 'line',
-        data: timePoints.map((t) => (t >= detectorTimeStr && t <= limitAlarmTimeStr ? 55 : null)),
+        data: timePoints.map((t) => (t >= detectorTimeStr && t <= limitAlarmTimeStr ? yMax : null)),
         areaStyle: {
           color: 'rgba(238, 242, 255, 0.65)'
         },
@@ -113,7 +110,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
         tooltip: { show: false }
       },
       {
-        name: 'Battery Temperature',
+        name: channelLabel,
         type: 'line',
         smooth: 0.35,
         data: tempValues,
@@ -134,7 +131,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
               label: {
                 show: true,
                 position: 'end',
-                formatter: 'HARD LIMIT\n45°C',
+                formatter: `HARD LIMIT\n${hardLimitValue} ${unit}`,
                 color: '#DC2626',
                 fontWeight: 'bold',
                 fontSize: 10,
@@ -161,7 +158,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
           data: [
             {
               name: 'Our System Alert',
-              coord: [detectorTimeStr, detectorTemp],
+              coord: [detectorTimeStr, detectorTriggerVal],
               symbol: 'roundRect',
               symbolSize: [140, 52],
               symbolOffset: [0, -42],
@@ -173,7 +170,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
                 shadowBlur: 8
               },
               label: {
-                formatter: `OUR SYSTEM ALERT\n${detectorTimeStr}\nTemp: ${detectorTemp}°C\nScore: 0.87`,
+                formatter: `OUR SYSTEM ALERT\n${detectorTimeStr}\nVal: ${detectorTriggerVal} ${unit}\nScore: ${anomalyScore}`,
                 color: '#6B21A8',
                 fontWeight: 'bold',
                 fontSize: 10,
@@ -182,7 +179,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
             },
             {
               name: 'Limit Alarm',
-              coord: [limitAlarmTimeStr, limitTemp],
+              coord: [limitAlarmTimeStr, limitTriggerVal],
               symbol: 'roundRect',
               symbolSize: [130, 52],
               symbolOffset: [0, -42],
@@ -194,7 +191,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
                 shadowBlur: 8
               },
               label: {
-                formatter: `LIMIT ALARM\n${limitAlarmTimeStr}\nTemp: ${limitTemp}°C\nThreshold crossed`,
+                formatter: `LIMIT ALARM\n${limitAlarmTimeStr}\nVal: ${limitTriggerVal} ${unit}\nThreshold crossed`,
                 color: '#991B1B',
                 fontWeight: 'bold',
                 fontSize: 10,
@@ -215,7 +212,7 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
             <LineChart size={20} className="icon-blue" />
             <h2 className="comparison-card-title">DETECTION COMPARISON</h2>
           </div>
-          <span className="comparison-card-sub">Battery Temperature (°C)</span>
+          <span className="comparison-card-sub">{channelLabel} ({unit})</span>
         </div>
 
         <div className="chart-header-controls">
@@ -239,10 +236,10 @@ export default function DetectionComparisonChart({ comparisonData, telemetryHist
 
       <div className="comparison-legend-row">
         <div className="legend-item">
-          <span className="legend-line blue-solid"></span> Battery Temperature
+          <span className="legend-line blue-solid"></span> {channelLabel}
         </div>
         <div className="legend-item">
-          <span className="legend-line red-dashed"></span> Hard Limit (45°C)
+          <span className="legend-line red-dashed"></span> Hard Limit ({hardLimitValue} {unit})
         </div>
         <div className="legend-item">
           <span className="legend-dot purple-dot"></span> Our System Alert
