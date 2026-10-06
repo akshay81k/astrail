@@ -1,0 +1,197 @@
+{
+  "metadata": {
+    "project": "Astrail Spacecraft Root Cause Analysis",
+    "seed": 42,
+    "architecture": "Residual GRU Forecaster + Conformal Threshold + CUSUM + DAG RCA",
+    "timestamp": "2026-10-06"
+  },
+  "phase2_real_faults": {
+    "total_faults": 8,
+    "detected_count": 2,
+    "recall": 0.25,
+    "mean_lead_rows": -25.5,
+    "records": [
+      {
+        "fault_id": "F001",
+        "fault_type": "thermal_runaway",
+        "true_source": "THERMAL",
+        "limit_alarm_row": NaN,
+        "gru_alert_row": NaN,
+        "delay_rows": NaN,
+        "lead_rows": NaN,
+        "detected": false
+      },
+      {
+        "fault_id": "F002",
+        "fault_type": "battery_degradation",
+        "true_source": "POWER",
+        "limit_alarm_row": 22000.0,
+        "gru_alert_row": 22020.0,
+        "delay_rows": 20.0,
+        "lead_rows": -20.0,
+        "detected": true
+      },
+      {
+        "fault_id": "F003",
+        "fault_type": "reaction_wheel_stiction",
+        "true_source": "ATTITUDE",
+        "limit_alarm_row": 31001.0,
+        "gru_alert_row": NaN,
+        "delay_rows": NaN,
+        "lead_rows": NaN,
+        "detected": false
+      },
+      {
+        "fault_id": "F004",
+        "fault_type": "communication_degradation",
+        "true_source": "COMMUNICATIONS",
+        "limit_alarm_row": 40506.0,
+        "gru_alert_row": 40537.0,
+        "delay_rows": 37.0,
+        "lead_rows": -31.0,
+        "detected": true
+      },
+      {
+        "fault_id": "F005",
+        "fault_type": "radiation_upset",
+        "true_source": "RADIATION",
+        "limit_alarm_row": 50006.0,
+        "gru_alert_row": NaN,
+        "delay_rows": NaN,
+        "lead_rows": NaN,
+        "detected": false
+      },
+      {
+        "fault_id": "F006",
+        "fault_type": "payload_overload",
+        "true_source": "PAYLOAD",
+        "limit_alarm_row": 61155.0,
+        "gru_alert_row": NaN,
+        "delay_rows": NaN,
+        "lead_rows": NaN,
+        "detected": false
+      },
+      {
+        "fault_id": "F007",
+        "fault_type": "sensor_bias",
+        "true_source": "ATTITUDE",
+        "limit_alarm_row": 69000.0,
+        "gru_alert_row": NaN,
+        "delay_rows": NaN,
+        "lead_rows": NaN,
+        "detected": false
+      },
+      {
+        "fault_id": "F008",
+        "fault_type": "power_bus_instability",
+        "true_source": "POWER",
+        "limit_alarm_row": 74501.0,
+        "gru_alert_row": NaN,
+        "delay_rows": NaN,
+        "lead_rows": NaN,
+        "detected": false
+      }
+    ]
+  },
+  "phase3_injected_faults": {
+    "total_injected": 190,
+    "gru_detected": 190,
+    "recall": 1.0,
+    "mean_lead_rows": 0.0
+  },
+  "phase4_cusum": {
+    "total_drifts": 30,
+    "cusum_detected": 3,
+    "gru_detected": 9,
+    "cusum_only_rescues": 2
+  },
+  "phase5_event_classification": {
+    "confusion_matrix": [
+      {
+        "true_label": "subsystem_fault",
+        "subsystem_fault": 67,
+        "sensor_fault": 0,
+        "noise": 0
+      },
+      {
+        "true_label": "sensor_fault",
+        "subsystem_fault": 61,
+        "sensor_fault": 0,
+        "noise": 0
+      },
+      {
+        "true_label": "noise",
+        "subsystem_fault": 40,
+        "sensor_fault": 0,
+        "noise": 0
+      }
+    ]
+  },
+  "phase6_rca": {
+    "real_faults": {
+      "count": 8,
+      "top1_accuracy": 0.375,
+      "top3_accuracy": 0.5
+    },
+    "injected_faults": {
+      "count": 60,
+      "top1_accuracy": 0.16666666666666666,
+      "top3_accuracy": 0.4
+    }
+  },
+  "phase7_masking_sweep": [
+    {
+      "mask_pct": 0,
+      "det_recall": 0.125,
+      "fp_day": 0.5573474390401238
+    },
+    {
+      "mask_pct": 10,
+      "det_recall": 0.125,
+      "fp_day": 0.7431299187201652
+    },
+    {
+      "mask_pct": 20,
+      "det_recall": 0.125,
+      "fp_day": 0.0
+    },
+    {
+      "mask_pct": 30,
+      "det_recall": 0.125,
+      "fp_day": 0.0
+    },
+    {
+      "mask_pct": 40,
+      "det_recall": 0.125,
+      "fp_day": 0.0
+    }
+  ],
+  "phase7_ablations": [
+    {
+      "ablation": "no_conformal",
+      "det_8_real": "2",
+      "fp_day": "6.050420168067227"
+    },
+    {
+      "ablation": "no_persistence",
+      "det_8_real": "1",
+      "fp_day": "2.5930372148859546"
+    },
+    {
+      "ablation": "no_noise_fault_logic",
+      "det_8_real": "[BAD] not separately measured",
+      "fp_day": "[BAD]"
+    },
+    {
+      "ablation": "no_cusum",
+      "det_8_real": "2",
+      "fp_day": "0.743"
+    }
+  ],
+  "phase7_confidence": {
+    "mean_conf_when_correct": 0.1301,
+    "mean_conf_when_wrong": 0.0001,
+    "separation_ratio": 1301.0,
+    "gate_status": "PASS"
+  }
+}

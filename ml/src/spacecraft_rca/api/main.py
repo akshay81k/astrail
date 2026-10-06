@@ -63,6 +63,7 @@ from ..data.quality import TelemetryQualityProcessor
 from ..models.root_cause import RootCauseEngine
 from ..models.safety_engine import SafetyEngine
 from ..models.explain import ExplainerEngine
+from ..models.iforest import IForestForecaster
 
 data_root = Path("../INITIUM_TECHFEST_2026_27_DATA_PACK")
 rc_engine = RootCauseEngine(data_root)
@@ -74,9 +75,11 @@ inference_state = {
     "window_buffer": pd.DataFrame(),
     "quality_processor": None,
     "gru": None,
+    "iforest": None,
     "cal_p99": None,
     "best_thresh": 1.022,
-    "sensor_cols": []
+    "sensor_cols": [],
+    "sig_cat": None
 }
 
 @app.on_event("startup")
@@ -144,6 +147,15 @@ async def load_models():
         cal_p99 = np.percentile(res_ca, 99.9, axis=0)
         inference_state["cal_p99"] = np.maximum(cal_p99, 1e-4)
         
+        # Initialize and fit Isolation Forest
+        logger.info("Fitting Isolation Forest...")
+        dep_graph = pd.read_csv(data_root / "metadata" / "dependency_graph.csv")
+        iforest = IForestForecaster(dependency_graph_df=dep_graph, alpha=0.01, window_size=32)
+        iforest.fit(df_tr, sig_cat)
+        iforest.calibrate(df_ca, sig_cat)
+        inference_state["iforest"] = iforest
+        inference_state["sig_cat"] = sig_cat
+        
     except Exception as e:
         logger.error(f"Failed to load models securely: {e}")
 
@@ -151,11 +163,20 @@ async def load_models():
 async def ingest_telemetry(batch: TelemetryBatch):
     logger.info(f"Received valid batch {batch.batch_id} with {len(batch.data)} rows.")
     if not inference_state["gru"]:
-        return {"error": "Models not loaded"}
+        return {"status": "accepted", "warning": "Models not loaded"}
         
     # Process incoming rows
     records = [r.dict() for r in batch.data]
-    df_new = pd.DataFrame([{"timestamp": r['timestamp'], "mode": r['mode'], **r['signals']} for r in records])
+    sc = inference_state.get("sensor_cols", [])
+    sc_set = set(sc) if sc else None
+    df_rows = []
+    for r in records:
+        row = {"timestamp": r['timestamp'], "mode": r['mode']}
+        for k, v in r['signals'].items():
+            if sc_set is None or k in sc_set:
+                row[k] = v
+        df_rows.append(row)
+    df_new = pd.DataFrame(df_rows)
     df_new['timestamp'] = pd.to_datetime(df_new['timestamp'], unit='s')
     
     # Append to buffer
@@ -163,7 +184,7 @@ async def ingest_telemetry(batch: TelemetryBatch):
     inference_state["window_buffer"] = buf
     
     if len(buf) < 32:
-        return {"status": "buffering", "rows": len(buf)}
+        return {"status": "accepted", "state": "buffering", "rows": len(buf)}
         
     # Run inference on the latest 32 window
     df_proc = buf.copy()
@@ -199,9 +220,24 @@ async def ingest_telemetry(batch: TelemetryBatch):
     res = np.abs(pred - y_targ)
     score = res / inference_state["cal_p99"]
     
-    # Check threshold
-    thresh = inference_state["best_thresh"]
-    flagged_idx = np.where(score > thresh)[0]
+    # IForest Prediction
+    iforest = inference_state["iforest"]
+    sig_cat = inference_state["sig_cat"]
+    if_score = 0.0
+    if_thresh = iforest.threshold if iforest else 100.0
+    if iforest and len(buf) >= 32:
+        if_scores, _ = iforest.predict(buf.tail(32), sig_cat)
+        if len(if_scores) > 0:
+            if_score = if_scores[-1]
+            
+    # Check threshold using Fusion Logic
+    gru_thresh = inference_state["best_thresh"]
+    gru_alert = score > gru_thresh
+    gru_low = score > (gru_thresh * 0.8)
+    if_low = if_score > (if_thresh * 0.8)
+    
+    final_alert = gru_alert | (gru_low & if_low)
+    flagged_idx = np.where(final_alert)[0]
     flagged_sensors = [sc[i] for i in flagged_idx]
     
     incident = None
@@ -225,10 +261,13 @@ async def ingest_telemetry(batch: TelemetryBatch):
             "explanation": explanation
         }
         
-    # Broadcast to WebSockets
+    # Broadcast to WebSockets with Real Anomaly Score on Every Frame
+    telemetry_data = records[-1].copy()
+    telemetry_data["anomaly_score_max"] = float(np.max(score))
+    
     await manager.send_incident({
         "type": "telemetry",
-        "data": records[-1]
+        "data": telemetry_data
     })
     
     if incident:

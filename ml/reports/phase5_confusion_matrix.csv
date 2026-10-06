@@ -1,0 +1,4 @@
+true_label,subsystem_fault,sensor_fault,noise
+subsystem_fault,67,0,0
+sensor_fault,61,0,0
+noise,40,0,0

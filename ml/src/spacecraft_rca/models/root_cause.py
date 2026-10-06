@@ -56,10 +56,9 @@ class RootCauseEngine:
             
             candidates = sorted(scores.items(), key=lambda x: x[1], reverse=True)
             top_candidates = []
-            import random
             for sub, score in candidates:
                 if range_score == 0:
-                    conf = (94.0 + random.uniform(1.1, 5.8)) if len(candidates) == 1 else round(100.0 / len(candidates), 1)
+                    conf = 95.0 if len(candidates) == 1 else round(100.0 / len(candidates), 1)
                 else:
                     # Scale to 50-99% range based on relative depth
                     conf = 50.0 + (score - min_score) / range_score * 49.0
@@ -78,19 +77,29 @@ class RootCauseEngine:
         if len(flagged_sensors) == 1 and not downstream:
             fault_type = "Transient Noise / Isolated Sensor Fault"
             
-        # GROQ LLM Reasoning Layer (Mocked if no API key is present for demo safety)
-        reasoning_text = ""
+        # Deterministic Confidence Calculation
+        detector_margin = 1.2
+        data_quality_score = 1.0
+        confidence_reasons = []
+        
         if top_candidates:
-            rc_sub = top_candidates[0]["subsystem"]
-            sensors_str = ", ".join([s[:15] for s in flagged_sensors[:3]])
-            reasoning_text = f"Groq Analysis: The GRU model detected anomalous deviations across [{sensors_str}]. Tracing the dependency DAG reveals that {rc_sub} is the highest upstream node propagating these errors. This strongly indicates a primary {rc_sub} failure rather than independent sensor malfunctions."
-        else:
-            reasoning_text = "Groq Analysis: Insufficient anomalous sensor overlap to confidently isolate a subsystem root cause."
+            if len(top_candidates) > 1:
+                gap = max(0.01, (top_candidates[0]["confidence_score"] - top_candidates[1]["confidence_score"]) / 100.0)
+            else:
+                gap = 1.0
+            
+            conf = min(100.0, max(0.0, detector_margin * data_quality_score * gap * 100))
+            top_candidates[0]["confidence_score"] = round(conf, 1)
+            confidence_reasons = [
+                f"Detector Margin: {detector_margin:.2f}",
+                f"Data Quality: {data_quality_score:.2f}",
+                f"Rank Gap: {gap:.2f}"
+            ]
             
         return {
             "root_cause_candidates": top_candidates,
             "downstream_impact": downstream,
             "flagged_subsystems": list(flagged_subs),
             "fault_classification": fault_type,
-            "llm_reasoning": reasoning_text
+            "confidence_reasons": confidence_reasons
         }

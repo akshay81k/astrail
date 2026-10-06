@@ -74,7 +74,7 @@ class Responder:
                     safety_notes=safety_note if not is_safe else None
                 ))
                 
-        # Sort actions: safe first, then by risk (CRITICAL first, etc. mock sort)
+        # Sort actions: safe first, then by risk priority (CRITICAL first, etc.)
         risk_map = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
         actions.sort(key=lambda x: (x.is_safe, risk_map.get(x.risk_level, 0)), reverse=True)
         

@@ -91,7 +91,7 @@ def save_artifact(obj: Any, filename: str, artifact_type: str) -> None:
         filename: Name of the file inside the artifacts directory.
         artifact_type: The type of artifact ('safetensors' or 'joblib').
     """
-    artifacts_dir = Path(__file__).parent.parent.parent / "artifacts"
+    artifacts_dir = _get_manifest_path().parent
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     filepath = artifacts_dir / filename
 
@@ -121,9 +121,9 @@ def load_artifact(filename: str, artifact_type: str) -> Any:
     Returns:
         The loaded object.
     """
-    artifacts_dir = Path(__file__).parent.parent.parent / "artifacts"
-    filepath = artifacts_dir / filename
     manifest_path = _get_manifest_path()
+    artifacts_dir = manifest_path.parent
+    filepath = artifacts_dir / filename
 
     if not filepath.exists():
         raise FileNotFoundError(f"Artifact {filename} not found at {filepath}")

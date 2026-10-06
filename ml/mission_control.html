@@ -186,7 +186,7 @@
                 document.getElementById('mission-time').innerText = time;
                 
                 tempChart.data.labels.push(time); tempChart.data.datasets[0].data.push(msg.data.signals.battery_temperature_C);
-                scoreChart.data.labels.push(time); scoreChart.data.datasets[0].data.push(0);
+                scoreChart.data.labels.push(time); scoreChart.data.datasets[0].data.push(msg.data.anomaly_score_max || 0);
                 tel1.data.labels.push(time); tel1.data.datasets[0].data.push(msg.data.signals.power_bus_voltage_V);
                 tel2.data.labels.push(time); tel2.data.datasets[0].data.push(msg.data.signals.solar_array_current_A);
                 tel3.data.labels.push(time); tel3.data.datasets[0].data.push(msg.data.signals.reaction_wheel_speed_rpm);
@@ -210,31 +210,16 @@
                 scoreChart.data.datasets[0].data[scoreChart.data.datasets[0].data.length - 1] = inc.anomaly_score_max;
                 scoreChart.update();
 
-                if(rc.subsystem === "POWER") {
-                    document.getElementById('power-tag').innerText = "CRITICAL";
-                    document.getElementById('power-tag').className = "subsystem-tag tag-red";
-                    document.getElementById('power-val').innerText = "32%";
-                    document.getElementById('power-bar').style.background = "var(--danger)";
-                }
-
                 if (alertFeed.innerHTML.includes("System Nominal")) alertFeed.innerHTML = "";
                 const time = new Date(inc.timestamp * 1000).toLocaleTimeString();
                 
-                const totalLeadSeconds = Math.max(45, Math.floor((25.0 / inc.anomaly_score_max) * 240));
-                const leadMins = Math.floor(totalLeadSeconds / 60);
-                const leadSecs = totalLeadSeconds % 60;
-                const dynamicLeadBadge = `🚀 Detected ${leadMins}m ${leadSecs}s Early`;
+                const dynamicLeadBadge = (inc.lead_time !== undefined && inc.lead_time !== null) ? (inc.lead_time < 0 ? inc.lead_time + " rows" : inc.lead_time + " rows early") : "Not Available";
 
-                const faultClassification = inc.root_cause_analysis.fault_classification || "Subsystem Fault";
-                const llmReasoning = inc.root_cause_analysis.llm_reasoning || "Groq Analysis: Awaiting data...";
+                const faultClassification = inc.fault_classification || "Not Available";
 
                 const card = document.createElement('div');
                 card.className = 'alert-card alert-critical';
-                card.innerHTML = `<div style="font-size: 24px;">🌡️</div><div class="alert-content" style="width: 100%"><div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><h4>${rc.subsystem} Anomaly <span class="alert-tag critical">CRITICAL</span></h4><span style="background: #22c55e; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">${dynamicLeadBadge}</span></div><p style="font-size: 0.75rem; font-weight: 600; margin: 4px 0;">${time} | Type: <strong>${faultClassification}</strong> | Confidence: ${rc.confidence_score}%</p><p>${inc.explanation}</p>
-                <div style="margin-top: 10px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-                    <p style="font-size: 0.8rem; font-weight: 600; color: #f97316; margin-bottom: 4px;">⚡ Groq LPU Inference</p>
-                    <p style="font-size: 0.75rem; color: #475569; font-style: italic;">${llmReasoning}</p>
-                </div>
+                card.innerHTML = `<div style="font-size: 24px;">🌡️</div><div class="alert-content" style="width: 100%"><div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><h4>${rc.subsystem} Anomaly <span class="alert-tag critical">CRITICAL</span></h4><span style="background: #22c55e; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">Lead: ${dynamicLeadBadge}</span></div><p style="font-size: 0.75rem; font-weight: 600; margin: 4px 0;">${time} | Type: <strong>${faultClassification}</strong> | Confidence: ${rc.confidence_score}%</p><p>${inc.explanation}</p>
                 <p style="margin-top: 8px; font-weight: 600; color: #b91c1c;">Action: ${action}</p></div>`;
                 alertFeed.prepend(card);
 

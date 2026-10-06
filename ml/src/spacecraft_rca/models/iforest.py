@@ -27,23 +27,27 @@ class IForestForecaster:
         Engineers rolling mean, std, slope, and cross-channel differences.
         """
         logger.info("Extracting features for Isolation Forest...")
-        features = pd.DataFrame(index=df.index)
         
-        # Numeric columns only
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        sensor_cols = [c for c in numeric_cols if c not in ('timestamp', 'dq_score')]
+        # Sensor columns: strictly from signal catalog if provided
+        if signal_catalog_df is not None and 'signal' in signal_catalog_df.columns:
+            catalog_sigs = set(signal_catalog_df['signal'].tolist())
+            sensor_cols = [c for c in df.columns if c in catalog_sigs]
+        else:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            sensor_cols = [c for c in numeric_cols if c not in ('timestamp', 'dq_score', 'anomaly_label', 'out_of_order_flag')]
         
+        feat_dict = {}
         # 1. Rolling Mean & Std
         rolling = df[sensor_cols].rolling(window=self.window_size, min_periods=1)
         means = rolling.mean()
         stds = rolling.std().fillna(0)
         
         for c in sensor_cols:
-            features[f"{c}_mean"] = means[c]
-            features[f"{c}_std"] = stds[c]
+            feat_dict[f"{c}_mean"] = means[c]
+            feat_dict[f"{c}_std"] = stds[c]
             
             # 2. Slope (Difference over the window)
-            features[f"{c}_slope"] = df[c].diff(periods=self.window_size).fillna(0)
+            feat_dict[f"{c}_slope"] = df[c].diff(periods=self.window_size).fillna(0)
             
         # 3. Cross-channel differences based on dependency graph
         if self.dependency_graph_df is not None and signal_catalog_df is not None:
@@ -60,14 +64,16 @@ class IForestForecaster:
                 for s_sig in src_sigs:
                     for t_sig in tgt_sigs:
                         if s_sig in means.columns and t_sig in means.columns:
-                            features[f"{s_sig}_minus_{t_sig}"] = means[s_sig] - means[t_sig]
+                            feat_dict[f"{s_sig}_minus_{t_sig}"] = means[s_sig] - means[t_sig]
                             
+        features = pd.DataFrame(feat_dict, index=df.index)
         return features
 
     def fit(self, df_train: pd.DataFrame, signal_catalog_df: pd.DataFrame = None) -> None:
         """Fit Isolation Forest on train."""
         X_train = self.extract_features(df_train, signal_catalog_df)
         X_train = X_train.fillna(0) # Safety net
+        self.feature_names_ = X_train.columns.tolist()
         self.model.fit(X_train)
         self.is_fitted = True
         logger.info(f"Fitted Isolation Forest on {len(X_train)} samples with {X_train.shape[1]} features.")
@@ -78,6 +84,8 @@ class IForestForecaster:
             raise ValueError("Model must be fitted before calibration.")
             
         X_calib = self.extract_features(df_calib, signal_catalog_df)
+        if hasattr(self, 'feature_names_'):
+            X_calib = X_calib.reindex(columns=self.feature_names_, fill_value=0.0)
         X_calib = X_calib.fillna(0)
         
         # IForest score_samples returns negative anomaly score (lower is more anomalous)
@@ -96,6 +104,8 @@ class IForestForecaster:
             raise ValueError("Model must be calibrated before prediction.")
             
         X_test = self.extract_features(df_test, signal_catalog_df)
+        if hasattr(self, 'feature_names_'):
+            X_test = X_test.reindex(columns=self.feature_names_, fill_value=0.0)
         X_test = X_test.fillna(0)
         
         scores = -self.model.score_samples(X_test)

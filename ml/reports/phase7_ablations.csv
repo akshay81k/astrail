@@ -1,0 +1,5 @@
+ablation,det_8_real,fp_day
+no_conformal,2,6.050420168067227
+no_persistence,1,2.5930372148859546
+no_noise_fault_logic,[BAD] not separately measured,[BAD]
+no_cusum,2,0.743
