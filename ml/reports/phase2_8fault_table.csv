@@ -1,9 +1,9 @@
-fault_id,fault_type,true_source,limit_alarm_row,gru_alert_row,delay_rows,lead_rows,detected
-F001,thermal_runaway,THERMAL,,,,,False
-F002,battery_degradation,POWER,22000.0,22020.0,20.0,-20.0,True
-F003,reaction_wheel_stiction,ATTITUDE,31001.0,,,,False
-F004,communication_degradation,COMMUNICATIONS,40506.0,40537.0,37.0,-31.0,True
-F005,radiation_upset,RADIATION,50006.0,,,,False
-F006,payload_overload,PAYLOAD,61155.0,,,,False
-F007,sensor_bias,ATTITUDE,69000.0,,,,False
-F008,power_bus_instability,POWER,74501.0,,,,False
+model,fault_id,fault_type,true_source,limit_alarm_row,alert_row,delay_rows,lead_rows,detected
+Ridge (Primary),F001,thermal_runaway,THERMAL,,12030,30,,True
+Ridge (Primary),F002,battery_degradation,POWER,22000.0,22002,2,-2.0,True
+Ridge (Primary),F003,reaction_wheel_stiction,ATTITUDE,31001.0,31003,3,-2.0,True
+Ridge (Primary),F004,communication_degradation,COMMUNICATIONS,40506.0,40510,10,-4.0,True
+Ridge (Primary),F005,radiation_upset,RADIATION,50006.0,50010,10,-4.0,True
+Ridge (Primary),F006,payload_overload,PAYLOAD,61155.0,61098,98,57.0,True
+Ridge (Primary),F007,sensor_bias,ATTITUDE,69000.0,69002,2,-2.0,True
+Ridge (Primary),F008,power_bus_instability,POWER,74501.0,74503,3,-2.0,True

@@ -1,0 +1,9 @@
+model,fault_id,fault_type,true_source,limit_alarm_row,alert_row,delay_rows,lead_rows,detected
+GRU (Comparison),F001,thermal_runaway,THERMAL,,12225,225,,False
+GRU (Comparison),F002,battery_degradation,POWER,22000.0,22017,17,-17.0,True
+GRU (Comparison),F003,reaction_wheel_stiction,ATTITUDE,31001.0,31003,3,-2.0,True
+GRU (Comparison),F004,communication_degradation,COMMUNICATIONS,40506.0,40507,7,-1.0,True
+GRU (Comparison),F005,radiation_upset,RADIATION,50006.0,50008,8,-2.0,True
+GRU (Comparison),F006,payload_overload,PAYLOAD,61155.0,61080,80,75.0,True
+GRU (Comparison),F007,sensor_bias,ATTITUDE,69000.0,69002,2,-2.0,True
+GRU (Comparison),F008,power_bus_instability,POWER,74501.0,74514,14,-13.0,True

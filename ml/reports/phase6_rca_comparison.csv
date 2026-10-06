@@ -1,0 +1,9 @@
+dataset,method,top1,top1_ci_lo,top1_ci_hi,top3,top3_ci_lo,top3_ci_hi
+8 Real Faults,(a) Chance Baseline,0.125,0.0,0.375,0.375,0.0,0.75
+8 Real Faults,(b) Largest-Residual,0.625,0.25,0.875,0.75,0.375,1.0
+8 Real Faults,(c) Earliest-Onset,0.5,0.125,0.875,0.75,0.375,1.0
+8 Real Faults,(d) Engine v2 (Peak+Onset),0.625,0.25,0.875,0.75,0.375,1.0
+120 Injected Faults,(a) Chance Baseline,0.125,0.06666666666666667,0.18333333333333332,0.38333333333333336,0.3,0.475
+120 Injected Faults,(b) Largest-Residual,1.0,1.0,1.0,1.0,1.0,1.0
+120 Injected Faults,(c) Earliest-Onset,0.9666666666666667,0.9333333333333333,0.9916666666666667,1.0,1.0,1.0
+120 Injected Faults,(d) Engine v2 (Peak+Onset),1.0,1.0,1.0,1.0,1.0,1.0

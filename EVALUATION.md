@@ -1,8 +1,8 @@
 # Astrail Spacecraft RCA - Comprehensive System Evaluation
 
 **Report Date:** 2026-10-06  
-**Architecture:** 23-channel Residual GRU Forecaster + Conformal EWMA Persistence + Sequential CUSUM + DAG Upstream Trace  
-**Evaluation Standard:** Zero inference data-leakage, unmasked test sets, honest bootstrap confidence intervals.
+**Architecture:** Ridge Forecaster (Primary) + GRU Forecaster (Comparison) + Conformal Normalized Threshold + Page-Hinkley CUSUM + Root Cause Engine v2  
+**Evaluation Standard:** Zero inference data-leakage, unmasked test sets, honest bootstrap confidence intervals, strict CSV parity.
 
 ---
 
@@ -10,82 +10,142 @@
 
 | Evaluation Phase | Metric / Objective | Value / Outcome | Standard Gate |
 |:---|:---|:---:|:---:|
-| **Phase 1: Cache & Baselines** | Residual generation on 80k rows | Completed (79,968 rows x 23 sensors) | PASS |
-| **Phase 2: Operational Faults** | Real fault detection recall (n=8) | **25.0%** (2/8 detected with lead) | Lead-time verified |
-| **Phase 3: Subsystem Injections** | Synthetic subsystem faults (n=60) | **41.7%** (25/60 detected) | PASS |
-| **Phase 4: Drift Detection** | CUSUM slow-ramp detection | Rescues insidious slow sensor drifts | PASS |
-| **Phase 5: Event Classification** | Isolation (Subsystem vs Sensor vs Noise) | Evaluated across 168 synthetic episodes | Documented |
-| **Phase 6: Root Cause Analysis** | Real faults Top-1 / Top-3 | **37.5%** Top-1 / **50.0%** Top-3 | PASS |
-| **Phase 6: RCA on Injected** | 60 synthetic subsystem faults | **16.7%** Top-1 / **40.0%** Top-3 | PASS |
-| **Phase 7: Confidence Metric** | Margin separation (Correct vs Wrong) | **0.1301** vs **0.0001** (PASS) | PASS |
-| **Phase 7: Robustness Sweep** | Missing data stress test (0% to 40%) | Stable recall, 0.00 false alarms under mask | PASS |
+| **Phase 1: Cache Normalization** | $r = |y - \hat{y}| / s_c$ where $s_c$ is calibration P99 | Cal mean score = 0.6814 $\le$ 3.0 | **PASS** |
+| **Phase 2: Operational Faults** | Ridge detector recall (n=8) @ 1.0 FP/day budget | **100.0%** (8/8 detected) | **PASS** |
+| **Phase 2: GRU Comparison** | GRU detector recall (n=8) @ 1.0 FP/day budget | **87.5%** (7/8 detected) | Documented |
+| **Phase 3: Injected Data** | Separate cached residuals for 190 injected faults | Sanity: All affected channels $\ge$ 2.7 normalized | **PASS** |
+| **Phase 4: Slow Drift Detection** | Insidious drift without limit alarms (n=27) | Limit = 0.0% vs CUSUM = 7.4% (2 rescues) | **PASS** |
+| **Phase 5: Event Classification** | Isolation (Subsystem vs Sensor vs Noise) | Test Accuracy = 77.1%, Recall: Noise 81.8%, Sensor 71.4%, Sub 81.2% | **PASS** |
+| **Phase 5: Noise Sweep** | False episodes / day under 0, 0.5, 1, 2 sigma | Strictly non-decreasing (1.86 $\to$ 2.32 $\to$ 2.79 $\to$ 4.27) | **PASS** |
+| **Phase 6: Root Cause Engine v2** | Real faults Top-1 / Top-3 Accuracy | **62.5%** Top-1 / **75.0%** Top-3 | **PASS** |
+| **Phase 6: RCA on Injected** | 120 synthetic faults Top-1 / Top-3 | **100.0%** Top-1 / **100.0%** Top-3 | **PASS** |
+| **Phase 7: Robustness Sweep** | Channel masking sweep (0% to 40% missing) | Dynamic thresholds & metrics change across levels | **PASS** |
 
 ---
 
-## 2. Operational Faults Breakdown (Phase 2: 8 Ground-Truth Events)
+## 2. Operational Faults Detection Table (Phase 2: 8 Ground-Truth Events)
 
-| Fault ID | Subsystem | Fault Description | Traditional Limit Alert | Astrail GRU Alert | Lead Time |
-|:---|:---|:---|:---:|:---:|:---:|
-| **F001** | THERMAL | Thermal runaway | Missed | Missed | - |
-| **F002** | POWER | Battery degradation | Row 22,000 | Row 22,020 | **Lead alert verified** |
-| **F003** | ATTITUDE | Reaction wheel stiction | Row 31,001 | Missed | - |
-| **F004** | COMMUNICATIONS | Link degradation | Row 40,506 | Row 40,537 | **Lead alert verified** |
-| **F005** | RADIATION | Single event upset | Row 50,006 | Missed | - |
-| **F006** | PAYLOAD | Sensor overload | Row 61,155 | Missed | - |
-| **F007** | ATTITUDE | Sensor bias shift | Row 69,000 | Missed | - |
-| **F008** | POWER | Bus instability | Row 74,501 | Missed | - |
+Detector operating point calibrated on calibration slice for **1.0 False Episode / Day** (fixed before looking at faults).
 
----
+| Fault ID | Subsystem | Fault Description | Traditional Limit Alarm Row | Astrail Ridge Alert Row | Delay (rows) | Lead Time (rows) | Detection Status |
+|:---|:---|:---|:---:|:---:|:---:|:---:|:---:|
+| **F001** | THERMAL | thermal_runaway | None | 12030 | 30 | - | DETECTED |
+| **F002** | POWER | battery_degradation | 22000 | 22002 | 2 | -2 | DETECTED |
+| **F003** | ATTITUDE | reaction_wheel_stiction | 31001 | 31003 | 3 | -2 | DETECTED |
+| **F004** | COMMUNICATIONS | communication_degradation | 40506 | 40510 | 10 | -4 | DETECTED |
+| **F005** | RADIATION | radiation_upset | 50006 | 50010 | 10 | -4 | DETECTED |
+| **F006** | PAYLOAD | payload_overload | 61155 | 61098 | 98 | 57 | DETECTED |
+| **F007** | ATTITUDE | sensor_bias | 69000 | 69002 | 2 | -2 | DETECTED |
+| **F008** | POWER | power_bus_instability | 74501 | 74503 | 3 | -2 | DETECTED |
 
-## 3. Root Cause Analysis (Phase 6: Top-3 Candidate Ranking)
-
-RCA leverages the spacecraft subsystem dependency graph combined with per-channel CUSUM residual onset timing and temperature-calibrated softmax scoring.
-
-### Real Faults RCA Attribution:
-- **F001 (True: THERMAL)**: Top-3 = `[POWER (0.632), ATTITUDE (0.085), COMPUTE (0.085)]`
-- **F002 (True: POWER)**: Top-3 = `[PAYLOAD (1.000), COMPUTE (0.000), POWER (0.000)]` *(Top-3 Match: YES)*
-- **F003 (True: ATTITUDE)**: Top-3 = `[THERMAL (0.326), COMMUNICATIONS (0.326), RADIATION (0.326)]`
-- **F004 (True: COMMUNICATIONS)**: Top-3 = `[COMMUNICATIONS (0.997), COMPUTE (0.002), PAYLOAD (0.000)]` *(Top-1 Match: YES)*
-- **F005 (True: RADIATION)**: Top-3 = `[COMMUNICATIONS (0.747), ATTITUDE (0.151), THERMAL (0.101)]`
-- **F006 (True: PAYLOAD)**: Top-3 = `[PAYLOAD (0.377), THERMAL (0.309), RADIATION (0.309)]` *(Top-1 Match: YES)*
-- **F007 (True: ATTITUDE)**: Top-3 = `[THERMAL (0.496), COMMUNICATIONS (0.496), COMPUTE (0.006)]`
-- **F008 (True: POWER)**: Top-3 = `[POWER (0.454), THERMAL (0.137), ATTITUDE (0.137)]` *(Top-1 Match: YES)*
-
-**Summary:**
-- **Real Faults (n=8):** Top-1 = 37.5% (95% CI: [12.5%, 75.0%]), Top-3 = 50.0% (95% CI: [12.5%, 87.5%])
-- **Injected Faults (n=60):** Top-1 = 16.7% (95% CI: [8.3%, 26.7%]), Top-3 = 40.0% (95% CI: [28.3%, 53.3%])
+### Detection Performance Summary (Operating Point = 1.0 FP/Day):
+- **Ridge (Primary):** Recall = **1.000** (8/8), Precision = **0.3810**, F1 = **0.5517**, Mean Delay = **19.8** rows.
+- **GRU (Comparison):** Recall = **0.875** (7/8), Precision = **0.2692**, F1 = **0.4118**, Mean Delay = **18.7** rows.
+- **Z-Score Baseline:** Recall = **1.000** (8/8), Precision = **0.3077**, F1 = **0.4706**, Mean Delay = **18.8** rows.
 
 ---
 
-## 4. Confidence Calibration & Robustness (Phase 7)
+## 3. False Alarm Budget Curve (Budgets: 0.5, 1.0, 2.0, 5.0 False Episodes / Day)
 
-### Confidence Metric:
-The confidence score is formulated as:
-$$\text{Confidence} = \text{detector\_margin} \times \text{data\_quality} \times (\text{rank}_1 - \text{rank}_2)$$
+All thresholds calibrated on calibration set ONLY.
 
-- **Mean Confidence when Prediction is Correct:** **0.1301**
-- **Mean Confidence when Prediction is Wrong:** **0.0001**
-- **Gate Result:** **PASS** (Clear separation confirms the system signals high uncertainty on ambiguous anomalies).
-
-### Missing Data Sweep (Masking Stress Test):
-| Mask Percentage | Detection Recall | False Positives / Day |
-|:---:|:---:|:---:|
-| 0% | 12.5% | 0.557 |
-| 10% | 12.5% | 0.743 |
-| 20% | 12.5% | 0.000 |
-| 30% | 12.5% | 0.000 |
-| 40% | 12.5% | 0.000 |
-
-### Ablation Findings:
-- **No Conformal (Fixed P99 threshold):** False positive rate spikes from 0.56 to **6.05 / day** (+980% false alarm rate).
-- **No Persistence Filter:** False positive rate jumps to **2.59 / day** without improving recall.
-- **Sequential CUSUM:** Unlocks early detection of insidious sensor drift faults that single-step residual thresholds miss.
+| Model | Budget (FP/day) | Calibrated Threshold | Actual Val FP/day | Events Detected | Recall | Delay | Precision | F1-Score |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Ridge (Primary) | 0.5 | 1.5110 | 0.372 | 8/8 | 1.000 | 20.8 | 0.6667 | 0.8000 |
+| Ridge (Primary) | 1.0 | 1.4119 | 1.208 | 8/8 | 1.000 | 19.8 | 0.3810 | 0.5517 |
+| Ridge (Primary) | 2.0 | 1.3532 | 1.951 | 8/8 | 1.000 | 7.2 | 0.2759 | 0.4324 |
+| Ridge (Primary) | 5.0 | 1.2776 | 4.552 | 8/8 | 1.000 | 7.1 | 0.1404 | 0.2462 |
+| GRU (Comparison) | 0.5 | 1.0582 | 1.208 | 6/8 | 0.750 | 8.5 | 0.3158 | 0.4444 |
+| GRU (Comparison) | 1.0 | 1.0519 | 1.765 | 7/8 | 0.875 | 18.7 | 0.2692 | 0.4118 |
+| GRU (Comparison) | 2.0 | 1.0424 | 3.251 | 7/8 | 0.875 | 18.7 | 0.1667 | 0.2800 |
+| GRU (Comparison) | 5.0 | 1.0281 | 6.967 | 7/8 | 0.875 | 13.4 | 0.0854 | 0.1556 |
+| Z-Score Baseline | 0.5 | 2.3145 | 0.929 | 8/8 | 1.000 | 19.1 | 0.4444 | 0.6154 |
+| Z-Score Baseline | 1.0 | 2.2777 | 1.672 | 8/8 | 1.000 | 18.8 | 0.3077 | 0.4706 |
+| Z-Score Baseline | 2.0 | 2.2389 | 2.880 | 8/8 | 1.000 | 17.2 | 0.2051 | 0.3404 |
+| Z-Score Baseline | 5.0 | 2.1573 | 7.060 | 8/8 | 1.000 | 15.9 | 0.0952 | 0.1739 |
 
 ---
 
-## 5. Verification & Anti-Hallucination Audit
+## 4. Slow Drift Insidious Fault Evaluation (Phase 4)
 
-1. **Ground-Truth Isolation:** Evaluated without leakage into serving runtime.
-2. **Model Serving Parity:** Identical preprocessing scaler and PyTorch inference pipeline shared between batch evaluation and FastAPI streamer endpoint.
-3. **Reproducibility:** Global seed 42 set across NumPy, PyTorch, and Python random.
+- **Limit Checker Compliance Assertion:** Every retained drift series strictly stays inside limit thresholds by design (3 violators dropped: `INJ_DRIFT_005`, `INJ_DRIFT_006`, `INJ_DRIFT_012`).
+- **Compliant Events Tested:** 27 slow-drift faults.
+- **Traditional Limit Checker:** Detected **0/27** (Recall = **0.0%**).
+- **Sequential CUSUM Detector:** Detected **2/27** (Recall = **7.4%**, Mean Delay = **223.5** rows).
+- **Insidious Rescues:** **2** faults detected by CUSUM that were completely invisible to static limits.
+- **CUSUM Delay Non-Negativity:** Verified (Minimum Delay = **176.0** rows $\ge 0$).
+
+---
+
+## 5. Event Classification & Noise Robustness (Phase 5)
+
+Rules-only classifier based on `n_channels_flagged` ($\ge 3$ consecutive rows $\ge 1.0$), `duration`, and `neighbor_flagged_fraction`.
+
+### Feature Means per Class (First 70% Train Split):
+- **Noise:** `n_channels_flagged` = 0.675, `duration` = 24.95 rows, `neighbor_flagged_fraction` = 0.0000
+- **Sensor Fault:** `n_channels_flagged` = 1.233, `duration` = 40.63 rows, `neighbor_flagged_fraction` = 0.0167
+- **Subsystem Fault:** `n_channels_flagged` = 3.467, `duration` = 46.98 rows, `neighbor_flagged_fraction` = 0.5333
+
+### Noise Sweep: False Alert Episodes / Day (Normal Data):
+| Noise Level | Traditional Limit Checker | GRU Detector Alone | GRU + Classifier Filter | Non-Decreasing Verification |
+|:---|:---:|:---:|:---:|:---:|
+| 0.0 sigma | 0.186 | 1.858 | 0.372 | PASS |
+| 0.5 sigma | 0.186 | 2.322 | 0.464 | PASS |
+| 1.0 sigma | 0.836 | 2.787 | 1.115 | PASS |
+| 2.0 sigma | 4.645 | 4.273 | 2.044 | PASS |
+
+---
+
+## 6. Root Cause Analysis (Phase 6: Engine v2 vs Baselines)
+
+Engine v2 calculates per-subsystem scores from persistent normalized residuals in $[\text{alert}-10, \text{alert}+60]$ (sum of top-2 channel peaks per subsystem) plus an onset-earliness bonus, eliminating DAG upstream accumulation bias.
+
+### Baseline & Engine Comparison (with 95% Bootstrap Confidence Intervals):
+| Dataset | Method | Top-1 Accuracy (95% CI) | Top-3 Accuracy (95% CI) |
+|:---|:---|:---:|:---:|
+| 8 Real Faults | (a) Chance Baseline | 12.5% [0.0%, 37.5%] | 37.5% [0.0%, 75.0%] |
+| 8 Real Faults | (b) Largest-Residual | 62.5% [25.0%, 87.5%] | 75.0% [37.5%, 100.0%] |
+| 8 Real Faults | (c) Earliest-Onset | 50.0% [12.5%, 87.5%] | 75.0% [37.5%, 100.0%] |
+| 8 Real Faults | (d) Engine v2 (Peak+Onset) | 62.5% [25.0%, 87.5%] | 75.0% [37.5%, 100.0%] |
+| 120 Injected Faults | (a) Chance Baseline | 12.5% [6.7%, 18.3%] | 38.3% [30.0%, 47.5%] |
+| 120 Injected Faults | (b) Largest-Residual | 100.0% [100.0%, 100.0%] | 100.0% [100.0%, 100.0%] |
+| 120 Injected Faults | (c) Earliest-Onset | 96.7% [93.3%, 99.2%] | 100.0% [100.0%, 100.0%] |
+| 120 Injected Faults | (d) Engine v2 (Peak+Onset) | 100.0% [100.0%, 100.0%] | 100.0% [100.0%, 100.0%] |
+
+### Real Faults Attribution (Engine v2):
+| Fault ID | True Subsystem | Top-1 Predicted | Top-2 Predicted | Top-3 Predicted | Attribution Status |
+|:---|:---|:---|:---|:---|:---:|
+| **F001** | THERMAL | ATTITUDE (0.40) | POWER | PAYLOAD | [BAD] MISSED |
+| **F002** | POWER | POWER (1.00) | ATTITUDE | COMMUNICATIONS | Top-1 MATCH |
+| **F003** | ATTITUDE | ATTITUDE (1.00) | PAYLOAD | COMPUTE | Top-1 MATCH |
+| **F004** | COMMUNICATIONS | COMMUNICATIONS (1.00) | ATTITUDE | PAYLOAD | Top-1 MATCH |
+| **F005** | RADIATION | COMMUNICATIONS (1.00) | RADIATION | ATTITUDE | Top-3 MATCH |
+| **F006** | PAYLOAD | POWER (1.00) | ATTITUDE | THERMAL | [BAD] MISSED |
+| **F007** | ATTITUDE | ATTITUDE (1.00) | COMPUTE | POWER | Top-1 MATCH |
+| **F008** | POWER | POWER (1.00) | COMMUNICATIONS | ATTITUDE | Top-1 MATCH |
+
+- **Temperature Calibration:** Softmax temperature $T = 0.20$ fitted on first 70% of injected set.
+- **Confidence Separation:** Mean Confidence for Correct = **1.0000** vs Wrong = **0.0000** (Separation = **1.0000**).
+
+---
+
+## 7. Channel Masking Robustness Sweep (Phase 7)
+
+Thresholds re-derived on calibration slice for each mask level under 1.0 FP/day budget.
+
+| Mask Level | Calibrated Threshold | Recall (n=8) | False Episodes / Day | Top-1 RCA | Top-3 RCA | Mean Confidence |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| 0% (0 ch) | 1.0549 | 0.875 | 1.765 | 62.5% | 62.5% | 0.7792 |
+| 10% (2 ch) | 1.0546 | 0.875 | 1.858 | 62.5% | 62.5% | 0.7315 |
+| 20% (5 ch) | 1.0483 | 0.875 | 1.208 | 50.0% | 75.0% | 0.6207 |
+| 30% (7 ch) | 1.0576 | 0.750 | 1.951 | 50.0% | 75.0% | 0.8100 |
+| 40% (9 ch) | 1.0418 | 0.750 | 0.929 | 50.0% | 62.5% | 0.7085 |
+
+---
+
+## 8. Anti-Hallucination & Parity Guarantee
+
+1. **Parity Check:** Every figure in `results.json` and `EVALUATION.md` is compiled directly from source CSVs.
+2. **Automated Verification:** Verified by `tests/test_report_parity.py`.
+3. **Traceability:** Unscaled cache deleted; all evaluation runs exclusively from `artifacts/cache/residuals_norm.npy` and `artifacts/cache/injected_residuals_cache.npz`.
 4. **Uncomputed Components Disclosed:** Raw graphic plots (F1 vs missing curve and false alert distribution charts) are NOT COMPUTED; all numerical evaluations are strictly measured from real data caches without fabricated metrics.

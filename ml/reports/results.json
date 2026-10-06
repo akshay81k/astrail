@@ -2,196 +2,823 @@
   "metadata": {
     "project": "Astrail Spacecraft Root Cause Analysis",
     "seed": 42,
-    "architecture": "Residual GRU Forecaster + Conformal Threshold + CUSUM + DAG RCA",
+    "architecture": "Ridge Forecaster (Primary) + GRU Forecaster (Comparison) + Conformal Normalized Threshold + Page-Hinkley CUSUM + Root Cause Engine v2",
     "timestamp": "2026-10-06"
   },
-  "phase2_real_faults": {
-    "total_faults": 8,
-    "detected_count": 2,
-    "recall": 0.25,
-    "mean_lead_rows": -25.5,
-    "records": [
+  "detection_evaluation": {
+    "operating_point_budget_fp_day": 1.0,
+    "ridge_primary": {
+      "threshold": 1.4119349578174143,
+      "recall": 1.0,
+      "detected_count": 8,
+      "total_faults": 8,
+      "val_fp_per_day": 1.2075861179202685,
+      "precision": 0.3809523809523809,
+      "f1_score": 0.5517241379310345,
+      "mean_delay_rows": 19.75
+    },
+    "gru_comparison": {
+      "threshold": 1.051913663575191,
+      "recall": 0.875,
+      "detected_count": 7,
+      "total_faults": 8,
+      "val_fp_per_day": 1.7649335569603923,
+      "precision": 0.2692307692307692,
+      "f1_score": 0.411764705882353,
+      "mean_delay_rows": 18.714285714285715
+    },
+    "z_score_baseline": {
+      "threshold": 2.277660674829258,
+      "recall": 1.0,
+      "detected_count": 8,
+      "total_faults": 8,
+      "val_fp_per_day": 1.6720423171203715,
+      "precision": 0.3076923076923077,
+      "f1_score": 0.4705882352941176,
+      "mean_delay_rows": 18.75
+    },
+    "budget_curve": [
       {
+        "model": "Ridge (Primary)",
+        "budget": 0.5,
+        "threshold": 1.5109994686935952,
+        "val_fp_per_day": 0.3715649593600826,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 20.75,
+        "precision": 0.6666666666666666,
+        "f1": 0.8
+      },
+      {
+        "model": "Ridge (Primary)",
+        "budget": 1.0,
+        "threshold": 1.4119349578174143,
+        "val_fp_per_day": 1.2075861179202685,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 19.75,
+        "precision": 0.3809523809523809,
+        "f1": 0.5517241379310345
+      },
+      {
+        "model": "Ridge (Primary)",
+        "budget": 2.0,
+        "threshold": 1.3531584300416972,
+        "val_fp_per_day": 1.9507160366404332,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 7.25,
+        "precision": 0.2758620689655172,
+        "f1": 0.4324324324324324
+      },
+      {
+        "model": "Ridge (Primary)",
+        "budget": 5.0,
+        "threshold": 1.2775924468879076,
+        "val_fp_per_day": 4.551670752161011,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 7.125,
+        "precision": 0.1403508771929824,
+        "f1": 0.2461538461538461
+      },
+      {
+        "model": "GRU (Comparison)",
+        "budget": 0.5,
+        "threshold": 1.0582025636790766,
+        "val_fp_per_day": 1.2075861179202685,
+        "events_detected": 6,
+        "recall": 0.75,
+        "mean_delay": 8.5,
+        "precision": 0.3157894736842105,
+        "f1": 0.4444444444444443
+      },
+      {
+        "model": "GRU (Comparison)",
+        "budget": 1.0,
+        "threshold": 1.051913663575191,
+        "val_fp_per_day": 1.7649335569603923,
+        "events_detected": 7,
+        "recall": 0.875,
+        "mean_delay": 18.714285714285715,
+        "precision": 0.2692307692307692,
+        "f1": 0.411764705882353
+      },
+      {
+        "model": "GRU (Comparison)",
+        "budget": 2.0,
+        "threshold": 1.042390500468439,
+        "val_fp_per_day": 3.2511933944007225,
+        "events_detected": 7,
+        "recall": 0.875,
+        "mean_delay": 18.714285714285715,
+        "precision": 0.1666666666666666,
+        "f1": 0.2799999999999999
+      },
+      {
+        "model": "GRU (Comparison)",
+        "budget": 5.0,
+        "threshold": 1.0280691436950096,
+        "val_fp_per_day": 6.966842988001549,
+        "events_detected": 7,
+        "recall": 0.875,
+        "mean_delay": 13.428571428571429,
+        "precision": 0.0853658536585365,
+        "f1": 0.1555555555555555
+      },
+      {
+        "model": "Z-Score Baseline",
+        "budget": 0.5,
+        "threshold": 2.3145139468426925,
+        "val_fp_per_day": 0.9289123984002065,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 19.125,
+        "precision": 0.4444444444444444,
+        "f1": 0.6153846153846153
+      },
+      {
+        "model": "Z-Score Baseline",
+        "budget": 1.0,
+        "threshold": 2.277660674829258,
+        "val_fp_per_day": 1.6720423171203715,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 18.75,
+        "precision": 0.3076923076923077,
+        "f1": 0.4705882352941176
+      },
+      {
+        "model": "Z-Score Baseline",
+        "budget": 2.0,
+        "threshold": 2.2388988497279048,
+        "val_fp_per_day": 2.87962843504064,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 17.25,
+        "precision": 0.2051282051282051,
+        "f1": 0.3404255319148936
+      },
+      {
+        "model": "Z-Score Baseline",
+        "budget": 5.0,
+        "threshold": 2.157334175102497,
+        "val_fp_per_day": 7.059734227841569,
+        "events_detected": 8,
+        "recall": 1.0,
+        "mean_delay": 15.875,
+        "precision": 0.0952380952380952,
+        "f1": 0.1739130434782608
+      }
+    ],
+    "records_8_faults": [
+      {
+        "model": "Ridge (Primary)",
         "fault_id": "F001",
         "fault_type": "thermal_runaway",
         "true_source": "THERMAL",
         "limit_alarm_row": NaN,
-        "gru_alert_row": NaN,
-        "delay_rows": NaN,
+        "alert_row": 12030,
+        "delay_rows": 30,
         "lead_rows": NaN,
-        "detected": false
+        "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F002",
         "fault_type": "battery_degradation",
         "true_source": "POWER",
         "limit_alarm_row": 22000.0,
-        "gru_alert_row": 22020.0,
-        "delay_rows": 20.0,
-        "lead_rows": -20.0,
+        "alert_row": 22002,
+        "delay_rows": 2,
+        "lead_rows": -2.0,
         "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F003",
         "fault_type": "reaction_wheel_stiction",
         "true_source": "ATTITUDE",
         "limit_alarm_row": 31001.0,
-        "gru_alert_row": NaN,
-        "delay_rows": NaN,
-        "lead_rows": NaN,
-        "detected": false
+        "alert_row": 31003,
+        "delay_rows": 3,
+        "lead_rows": -2.0,
+        "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F004",
         "fault_type": "communication_degradation",
         "true_source": "COMMUNICATIONS",
         "limit_alarm_row": 40506.0,
-        "gru_alert_row": 40537.0,
-        "delay_rows": 37.0,
-        "lead_rows": -31.0,
+        "alert_row": 40510,
+        "delay_rows": 10,
+        "lead_rows": -4.0,
         "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F005",
         "fault_type": "radiation_upset",
         "true_source": "RADIATION",
         "limit_alarm_row": 50006.0,
-        "gru_alert_row": NaN,
-        "delay_rows": NaN,
-        "lead_rows": NaN,
-        "detected": false
+        "alert_row": 50010,
+        "delay_rows": 10,
+        "lead_rows": -4.0,
+        "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F006",
         "fault_type": "payload_overload",
         "true_source": "PAYLOAD",
         "limit_alarm_row": 61155.0,
-        "gru_alert_row": NaN,
-        "delay_rows": NaN,
-        "lead_rows": NaN,
-        "detected": false
+        "alert_row": 61098,
+        "delay_rows": 98,
+        "lead_rows": 57.0,
+        "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F007",
         "fault_type": "sensor_bias",
         "true_source": "ATTITUDE",
         "limit_alarm_row": 69000.0,
-        "gru_alert_row": NaN,
-        "delay_rows": NaN,
-        "lead_rows": NaN,
-        "detected": false
+        "alert_row": 69002,
+        "delay_rows": 2,
+        "lead_rows": -2.0,
+        "detected": true
       },
       {
+        "model": "Ridge (Primary)",
         "fault_id": "F008",
         "fault_type": "power_bus_instability",
         "true_source": "POWER",
         "limit_alarm_row": 74501.0,
-        "gru_alert_row": NaN,
-        "delay_rows": NaN,
-        "lead_rows": NaN,
-        "detected": false
+        "alert_row": 74503,
+        "delay_rows": 3,
+        "lead_rows": -2.0,
+        "detected": true
       }
     ]
   },
-  "phase3_injected_faults": {
+  "phase3_injected_manifest": {
     "total_injected": 190,
-    "gru_detected": 190,
-    "recall": 1.0,
-    "mean_lead_rows": 0.0
+    "subsystem_faults": 60,
+    "sensor_faults": 60,
+    "slow_drift_faults": 30,
+    "noise_windows": 40
   },
-  "phase4_cusum": {
-    "total_drifts": 30,
-    "cusum_detected": 3,
-    "gru_detected": 9,
-    "cusum_only_rescues": 2
-  },
-  "phase5_event_classification": {
-    "confusion_matrix": [
+  "phase4_slow_drift": {
+    "compliant_drifts_tested": 27,
+    "limit_detected": 0,
+    "limit_recall": 0.0,
+    "gru_detected": 12,
+    "gru_recall": 0.4444444444444444,
+    "cusum_detected": 2,
+    "cusum_recall": 0.07407407407407407,
+    "cusum_only_rescues": 2,
+    "mean_cusum_delay": 223.5,
+    "min_cusum_delay": 176.0,
+    "records": [
       {
-        "true_label": "subsystem_fault",
-        "subsystem_fault": 67,
-        "sensor_fault": 0,
-        "noise": 0
+        "fault_id": "INJ_DRIFT_000",
+        "start_row": 231,
+        "end_row": 583,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
       },
       {
-        "true_label": "sensor_fault",
-        "subsystem_fault": 61,
-        "sensor_fault": 0,
-        "noise": 0
+        "fault_id": "INJ_DRIFT_001",
+        "start_row": 1010,
+        "end_row": 1384,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
       },
       {
-        "true_label": "noise",
-        "subsystem_fault": 40,
-        "sensor_fault": 0,
-        "noise": 0
+        "fault_id": "INJ_DRIFT_002",
+        "start_row": 1471,
+        "end_row": 1697,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_003",
+        "start_row": 1506,
+        "end_row": 1710,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": true,
+        "gru_delay": 144.0,
+        "cusum_delay": 176.0
+      },
+      {
+        "fault_id": "INJ_DRIFT_004",
+        "start_row": 2736,
+        "end_row": 3116,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_007",
+        "start_row": 3587,
+        "end_row": 3874,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_008",
+        "start_row": 3842,
+        "end_row": 4138,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 181.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_009",
+        "start_row": 4823,
+        "end_row": 5053,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 186.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_010",
+        "start_row": 5308,
+        "end_row": 5695,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_011",
+        "start_row": 5336,
+        "end_row": 5568,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_013",
+        "start_row": 6250,
+        "end_row": 6568,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 253.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_014",
+        "start_row": 6708,
+        "end_row": 6959,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 99.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_015",
+        "start_row": 9221,
+        "end_row": 9445,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_016",
+        "start_row": 10699,
+        "end_row": 11051,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 18.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_017",
+        "start_row": 11327,
+        "end_row": 11718,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 203.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_018",
+        "start_row": 11737,
+        "end_row": 12002,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 152.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_019",
+        "start_row": 12248,
+        "end_row": 12458,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_020",
+        "start_row": 12427,
+        "end_row": 12756,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_021",
+        "start_row": 12538,
+        "end_row": 12773,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_022",
+        "start_row": 12564,
+        "end_row": 12855,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_023",
+        "start_row": 12736,
+        "end_row": 13075,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_024",
+        "start_row": 12769,
+        "end_row": 13051,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": true,
+        "gru_delay": 211.0,
+        "cusum_delay": 271.0
+      },
+      {
+        "fault_id": "INJ_DRIFT_025",
+        "start_row": 13128,
+        "end_row": 13465,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 66.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_026",
+        "start_row": 13330,
+        "end_row": 13602,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 145.0,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_027",
+        "start_row": 13709,
+        "end_row": 13926,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_028",
+        "start_row": 13919,
+        "end_row": 14145,
+        "limit_detected": false,
+        "gru_detected": false,
+        "cusum_detected": false,
+        "gru_delay": NaN,
+        "cusum_delay": NaN
+      },
+      {
+        "fault_id": "INJ_DRIFT_029",
+        "start_row": 14746,
+        "end_row": 15021,
+        "limit_detected": false,
+        "gru_detected": true,
+        "cusum_detected": false,
+        "gru_delay": 89.0,
+        "cusum_delay": NaN
+      }
+    ]
+  },
+  "phase5_classification": {
+    "test_confusion_matrix": {
+      "Pred_noise": {
+        "True_noise": 9,
+        "True_sensor_fault": 5,
+        "True_subsystem_fault": 1
+      },
+      "Pred_sensor_fault": {
+        "True_noise": 2,
+        "True_sensor_fault": 15,
+        "True_subsystem_fault": 2
+      },
+      "Pred_subsystem_fault": {
+        "True_noise": 0,
+        "True_sensor_fault": 1,
+        "True_subsystem_fault": 13
+      }
+    },
+    "noise_sweep": [
+      {
+        "noise_sigma": 0.0,
+        "limit_fp_day": 0.1857824796800413,
+        "gru_fp_day": 1.857824796800413,
+        "gru_filtered_fp_day": 0.3715649593600826
+      },
+      {
+        "noise_sigma": 0.5,
+        "limit_fp_day": 0.1857824796800413,
+        "gru_fp_day": 2.322280996000516,
+        "gru_filtered_fp_day": 0.4644561992001032
+      },
+      {
+        "noise_sigma": 1.0,
+        "limit_fp_day": 0.8360211585601858,
+        "gru_fp_day": 2.7867371952006192,
+        "gru_filtered_fp_day": 1.1146948780802477
+      },
+      {
+        "noise_sigma": 2.0,
+        "limit_fp_day": 4.644561992001032,
+        "gru_fp_day": 4.27299703264095,
+        "gru_filtered_fp_day": 2.0436072764804543
       }
     ]
   },
   "phase6_rca": {
     "real_faults": {
-      "count": 8,
-      "top1_accuracy": 0.375,
-      "top3_accuracy": 0.5
+      "total_evaluated": 8,
+      "top1_accuracy": 0.625,
+      "top3_accuracy": 0.75,
+      "records": [
+        {
+          "fault_id": "F001",
+          "true_subsystem": "THERMAL",
+          "top1_subsystem": "ATTITUDE",
+          "top2_subsystem": "POWER",
+          "top3_subsystem": "PAYLOAD",
+          "top1_correct": 0,
+          "top3_correct": 0,
+          "confidence": 0.3999485646949884
+        },
+        {
+          "fault_id": "F002",
+          "true_subsystem": "POWER",
+          "top1_subsystem": "POWER",
+          "top2_subsystem": "ATTITUDE",
+          "top3_subsystem": "COMMUNICATIONS",
+          "top1_correct": 1,
+          "top3_correct": 1,
+          "confidence": 0.9996087502727218
+        },
+        {
+          "fault_id": "F003",
+          "true_subsystem": "ATTITUDE",
+          "top1_subsystem": "ATTITUDE",
+          "top2_subsystem": "PAYLOAD",
+          "top3_subsystem": "COMPUTE",
+          "top1_correct": 1,
+          "top3_correct": 1,
+          "confidence": 0.9999999999977632
+        },
+        {
+          "fault_id": "F004",
+          "true_subsystem": "COMMUNICATIONS",
+          "top1_subsystem": "COMMUNICATIONS",
+          "top2_subsystem": "ATTITUDE",
+          "top3_subsystem": "PAYLOAD",
+          "top1_correct": 1,
+          "top3_correct": 1,
+          "confidence": 1.0
+        },
+        {
+          "fault_id": "F005",
+          "true_subsystem": "RADIATION",
+          "top1_subsystem": "COMMUNICATIONS",
+          "top2_subsystem": "RADIATION",
+          "top3_subsystem": "ATTITUDE",
+          "top1_correct": 0,
+          "top3_correct": 1,
+          "confidence": 1.0
+        },
+        {
+          "fault_id": "F006",
+          "true_subsystem": "PAYLOAD",
+          "top1_subsystem": "POWER",
+          "top2_subsystem": "ATTITUDE",
+          "top3_subsystem": "THERMAL",
+          "top1_correct": 0,
+          "top3_correct": 0,
+          "confidence": 0.9976889476721972
+        },
+        {
+          "fault_id": "F007",
+          "true_subsystem": "ATTITUDE",
+          "top1_subsystem": "ATTITUDE",
+          "top2_subsystem": "COMPUTE",
+          "top3_subsystem": "POWER",
+          "top1_correct": 1,
+          "top3_correct": 1,
+          "confidence": 1.0
+        },
+        {
+          "fault_id": "F008",
+          "true_subsystem": "POWER",
+          "top1_subsystem": "POWER",
+          "top2_subsystem": "COMMUNICATIONS",
+          "top3_subsystem": "ATTITUDE",
+          "top1_correct": 1,
+          "top3_correct": 1,
+          "confidence": 0.9999085423908248
+        }
+      ]
     },
-    "injected_faults": {
-      "count": 60,
-      "top1_accuracy": 0.16666666666666666,
-      "top3_accuracy": 0.4
-    }
+    "baseline_comparison": [
+      {
+        "dataset": "8 Real Faults",
+        "method": "(a) Chance Baseline",
+        "top1": 0.125,
+        "top1_ci_lo": 0.0,
+        "top1_ci_hi": 0.375,
+        "top3": 0.375,
+        "top3_ci_lo": 0.0,
+        "top3_ci_hi": 0.75
+      },
+      {
+        "dataset": "8 Real Faults",
+        "method": "(b) Largest-Residual",
+        "top1": 0.625,
+        "top1_ci_lo": 0.25,
+        "top1_ci_hi": 0.875,
+        "top3": 0.75,
+        "top3_ci_lo": 0.375,
+        "top3_ci_hi": 1.0
+      },
+      {
+        "dataset": "8 Real Faults",
+        "method": "(c) Earliest-Onset",
+        "top1": 0.5,
+        "top1_ci_lo": 0.125,
+        "top1_ci_hi": 0.875,
+        "top3": 0.75,
+        "top3_ci_lo": 0.375,
+        "top3_ci_hi": 1.0
+      },
+      {
+        "dataset": "8 Real Faults",
+        "method": "(d) Engine v2 (Peak+Onset)",
+        "top1": 0.625,
+        "top1_ci_lo": 0.25,
+        "top1_ci_hi": 0.875,
+        "top3": 0.75,
+        "top3_ci_lo": 0.375,
+        "top3_ci_hi": 1.0
+      },
+      {
+        "dataset": "120 Injected Faults",
+        "method": "(a) Chance Baseline",
+        "top1": 0.125,
+        "top1_ci_lo": 0.0666666666666666,
+        "top1_ci_hi": 0.1833333333333333,
+        "top3": 0.3833333333333333,
+        "top3_ci_lo": 0.3,
+        "top3_ci_hi": 0.475
+      },
+      {
+        "dataset": "120 Injected Faults",
+        "method": "(b) Largest-Residual",
+        "top1": 1.0,
+        "top1_ci_lo": 1.0,
+        "top1_ci_hi": 1.0,
+        "top3": 1.0,
+        "top3_ci_lo": 1.0,
+        "top3_ci_hi": 1.0
+      },
+      {
+        "dataset": "120 Injected Faults",
+        "method": "(c) Earliest-Onset",
+        "top1": 0.9666666666666668,
+        "top1_ci_lo": 0.9333333333333332,
+        "top1_ci_hi": 0.9916666666666668,
+        "top3": 1.0,
+        "top3_ci_lo": 1.0,
+        "top3_ci_hi": 1.0
+      },
+      {
+        "dataset": "120 Injected Faults",
+        "method": "(d) Engine v2 (Peak+Onset)",
+        "top1": 1.0,
+        "top1_ci_lo": 1.0,
+        "top1_ci_hi": 1.0,
+        "top3": 1.0,
+        "top3_ci_lo": 1.0,
+        "top3_ci_hi": 1.0
+      }
+    ]
   },
-  "phase7_masking_sweep": [
+  "phase7_masking_robustness": [
     {
-      "mask_pct": 0,
-      "det_recall": 0.125,
-      "fp_day": 0.5573474390401238
+      "mask_fraction": 0.0,
+      "masked_channels_count": 0,
+      "calibrated_threshold": 1.054903873723821,
+      "recall": 0.875,
+      "false_episodes_per_day": 1.7649335569603923,
+      "rca_top1": 0.625,
+      "rca_top3": 0.625,
+      "mean_confidence": 0.7792020494870202
     },
     {
-      "mask_pct": 10,
-      "det_recall": 0.125,
-      "fp_day": 0.7431299187201652
+      "mask_fraction": 0.1,
+      "masked_channels_count": 2,
+      "calibrated_threshold": 1.0546457973034764,
+      "recall": 0.875,
+      "false_episodes_per_day": 1.857824796800413,
+      "rca_top1": 0.625,
+      "rca_top3": 0.625,
+      "mean_confidence": 0.7315292076668628
     },
     {
-      "mask_pct": 20,
-      "det_recall": 0.125,
-      "fp_day": 0.0
+      "mask_fraction": 0.2,
+      "masked_channels_count": 5,
+      "calibrated_threshold": 1.0482576077817425,
+      "recall": 0.875,
+      "false_episodes_per_day": 1.2075861179202685,
+      "rca_top1": 0.5,
+      "rca_top3": 0.75,
+      "mean_confidence": 0.6207012289911034
     },
     {
-      "mask_pct": 30,
-      "det_recall": 0.125,
-      "fp_day": 0.0
+      "mask_fraction": 0.3,
+      "masked_channels_count": 7,
+      "calibrated_threshold": 1.0576475114882598,
+      "recall": 0.75,
+      "false_episodes_per_day": 1.9507160366404332,
+      "rca_top1": 0.5,
+      "rca_top3": 0.75,
+      "mean_confidence": 0.8099688012650375
     },
     {
-      "mask_pct": 40,
-      "det_recall": 0.125,
-      "fp_day": 0.0
+      "mask_fraction": 0.4,
+      "masked_channels_count": 9,
+      "calibrated_threshold": 1.0418486372762503,
+      "recall": 0.75,
+      "false_episodes_per_day": 0.9289123984002065,
+      "rca_top1": 0.5,
+      "rca_top3": 0.625,
+      "mean_confidence": 0.7085330098348902
     }
-  ],
-  "phase7_ablations": [
-    {
-      "ablation": "no_conformal",
-      "det_8_real": "2",
-      "fp_day": "6.050420168067227"
-    },
-    {
-      "ablation": "no_persistence",
-      "det_8_real": "1",
-      "fp_day": "2.5930372148859546"
-    },
-    {
-      "ablation": "no_noise_fault_logic",
-      "det_8_real": "[BAD] not separately measured",
-      "fp_day": "[BAD]"
-    },
-    {
-      "ablation": "no_cusum",
-      "det_8_real": "2",
-      "fp_day": "0.743"
-    }
-  ],
-  "phase7_confidence": {
-    "mean_conf_when_correct": 0.1301,
-    "mean_conf_when_wrong": 0.0001,
-    "separation_ratio": 1301.0,
-    "gate_status": "PASS"
-  }
+  ]
 }

@@ -1,4 +1,4 @@
-true_label,subsystem_fault,sensor_fault,noise
-subsystem_fault,67,0,0
-sensor_fault,61,0,0
-noise,40,0,0
+,Pred_noise,Pred_sensor_fault,Pred_subsystem_fault
+True_noise,9,2,0
+True_sensor_fault,5,15,1
+True_subsystem_fault,1,2,13
