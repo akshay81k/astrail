@@ -7,7 +7,7 @@ export function formatMissionTime(simTimeSec) {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = Math.floor(totalSeconds % 60);
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 export function normalizeTelemetryFrame(frame) {
@@ -20,12 +20,16 @@ export function normalizeTelemetryFrame(frame) {
     const sec = frame.t[i];
     const timestamp = formatMissionTime(sec);
 
-    const batteryTemp = frame.channels?.battery_temp?.[i] ?? 31.0;
-    const solarCurrent = frame.channels?.solar_current?.[i] ?? 4.3;
-    const anomalyScore = frame.score?.[i] ?? 0.15;
-    const threshold = frame.threshold?.[i] ?? 0.45;
-    const isAnomalyPeak = (frame.flag?.[i] === 1) || (batteryTemp > 41.5) || (anomalyScore > 0.8);
-    const status = isAnomalyPeak ? 'ANOMALY' : (batteryTemp > 36 || solarCurrent < 3.0 ? 'WARNING' : 'NOMINAL');
+    const batteryTemp = frame.channels?.battery_temp?.[i] ?? frame.channels?.battery_temperature_C?.[i] ?? 21.8;
+    const solarCurrent = frame.channels?.solar_current?.[i] ?? frame.channels?.solar_array_current_A?.[i] ?? 3.05;
+    const anomalyScore = frame.score?.[i] ?? 0.9;
+    const threshold = frame.threshold?.[i] ?? 2.1;
+    const isAnomalyPeak = frame.flag?.[i] === 1 || anomalyScore >= threshold || batteryTemp >= 38.0;
+    const status = isAnomalyPeak
+      ? "ANOMALY"
+      : batteryTemp > 28.0 || solarCurrent < 2.0
+        ? "WARNING"
+        : "NOMINAL";
 
     points.push({
       simTime: sec,
@@ -35,7 +39,7 @@ export function normalizeTelemetryFrame(frame) {
       anomalyScore: parseFloat(Number(anomalyScore).toFixed(2)),
       threshold: parseFloat(Number(threshold).toFixed(2)),
       status,
-      isAnomalyPeak
+      isAnomalyPeak,
     });
   }
 
@@ -43,66 +47,84 @@ export function normalizeTelemetryFrame(frame) {
 }
 
 export function normalizeSubsystemHealth(subsystemHealth = {}) {
-  const healthMap = {
-    power: { name: 'POWER', percentage: 68, status: 'AMBER' },
-    thermal: { name: 'THERMAL', percentage: 92, status: 'RED' },
-    attitude: { name: 'ATTITUDE', percentage: 88, status: 'GREEN' },
-    comms: { name: 'COMMS', percentage: 96, status: 'GREEN' }
+  const mapColorToPct = (color) => {
+    const c = (color || "green").toLowerCase();
+    if (c === "red") return 38;
+    if (c === "amber" || c === "yellow") return 68;
+    return 98;
   };
 
-  const mapColorToPct = (color, defaultPct) => {
-    if (color === 'red') return 92;
-    if (color === 'amber') return 68;
-    return 96;
+  const getStatus = (color) => {
+    const c = (color || "green").toUpperCase();
+    if (c === "RED") return "RED";
+    if (c === "AMBER" || c === "YELLOW") return "AMBER";
+    return "GREEN";
   };
 
-  if (subsystemHealth.power) {
-    const pColor = subsystemHealth.power.toUpperCase();
-    healthMap.power = {
-      name: 'POWER',
-      percentage: mapColorToPct(subsystemHealth.power, 68),
-      status: pColor,
-      statusClass: subsystemHealth.power
-    };
-  }
-
-  if (subsystemHealth.thermal) {
-    const tColor = subsystemHealth.thermal.toUpperCase();
-    healthMap.thermal = {
-      name: 'THERMAL',
-      percentage: mapColorToPct(subsystemHealth.thermal, 92),
-      status: tColor,
-      statusClass: subsystemHealth.thermal
-    };
-  }
-
-  if (subsystemHealth.attitude) {
-    const aColor = subsystemHealth.attitude.toUpperCase();
-    healthMap.attitude = {
-      name: 'ATTITUDE',
-      percentage: mapColorToPct(subsystemHealth.attitude, 88),
-      status: aColor,
-      statusClass: subsystemHealth.attitude
-    };
-  }
+  const pColor = subsystemHealth.power || "green";
+  const tColor = subsystemHealth.thermal || "green";
+  const aColor = subsystemHealth.attitude || "green";
+  const cColor = subsystemHealth.comms || "green";
 
   return [
-    { id: 'power', ...healthMap.power, icon: 'Zap' },
-    { id: 'thermal', ...healthMap.thermal, icon: 'Thermometer' },
-    { id: 'attitude', ...healthMap.attitude, icon: 'Compass' },
-    { id: 'comms', ...healthMap.comms, icon: 'Wifi' }
+    { id: "power", name: "POWER", percentage: mapColorToPct(pColor), status: getStatus(pColor), statusClass: pColor.toLowerCase(), icon: "Zap" },
+    { id: "thermal", name: "THERMAL", percentage: mapColorToPct(tColor), status: getStatus(tColor), statusClass: tColor.toLowerCase(), icon: "Thermometer" },
+    { id: "attitude", name: "ATTITUDE", percentage: mapColorToPct(aColor), status: getStatus(aColor), statusClass: aColor.toLowerCase(), icon: "Compass" },
+    { id: "comms", name: "COMMS", percentage: mapColorToPct(cColor), status: getStatus(cColor), statusClass: cColor.toLowerCase(), icon: "Wifi" },
   ];
 }
 
 export function normalizeSensors(sensors = []) {
   // Map signal catalog or sensor objects to 6 chip slots S1-S6
   const defaultSensors = [
-    { id: 'S1', name: 'S1', status: 'OK', color: 'green', lastUpdate: 'Just now', quality: '99.8%' },
-    { id: 'S2', name: 'S2', status: 'OK', color: 'green', lastUpdate: 'Just now', quality: '100%' },
-    { id: 'S3', name: 'S3', status: 'DELAYED', color: 'amber', lastUpdate: '16s ago', quality: '82.4% (Sync delay)' },
-    { id: 'S4', name: 'S4', status: 'OK', color: 'green', lastUpdate: 'Just now', quality: '99.5%' },
-    { id: 'S5', name: 'S5', status: 'MISSING', color: 'red', lastUpdate: '2m 14s ago', quality: '0% (No packet)' },
-    { id: 'S6', name: 'S6', status: 'OK', color: 'green', lastUpdate: 'Just now', quality: '99.9%' }
+    {
+      id: "S1",
+      name: "S1",
+      status: "OK",
+      color: "green",
+      lastUpdate: "Just now",
+      quality: "99.8%",
+    },
+    {
+      id: "S2",
+      name: "S2",
+      status: "OK",
+      color: "green",
+      lastUpdate: "Just now",
+      quality: "100%",
+    },
+    {
+      id: "S3",
+      name: "S3",
+      status: "DELAYED",
+      color: "amber",
+      lastUpdate: "16s ago",
+      quality: "82.4% (Sync delay)",
+    },
+    {
+      id: "S4",
+      name: "S4",
+      status: "OK",
+      color: "green",
+      lastUpdate: "Just now",
+      quality: "99.5%",
+    },
+    {
+      id: "S5",
+      name: "S5",
+      status: "MISSING",
+      color: "red",
+      lastUpdate: "2m 14s ago",
+      quality: "0% (No packet)",
+    },
+    {
+      id: "S6",
+      name: "S6",
+      status: "OK",
+      color: "green",
+      lastUpdate: "Just now",
+      quality: "99.9%",
+    },
   ];
 
   if (!sensors || sensors.length === 0) return defaultSensors;
@@ -111,16 +133,16 @@ export function normalizeSensors(sensors = []) {
     const realSensor = sensors[index];
     if (!realSensor) return defSlot;
 
-    const rawStatus = (realSensor.status || 'ok').toLowerCase();
-    let statusText = 'OK';
-    let color = 'green';
+    const rawStatus = (realSensor.status || "ok").toLowerCase();
+    let statusText = "OK";
+    let color = "green";
 
-    if (rawStatus === 'missing' || rawStatus === 'unavailable') {
-      statusText = 'MISSING';
-      color = 'red';
-    } else if (rawStatus === 'delayed' || rawStatus === 'noisy') {
-      statusText = 'DELAYED';
-      color = 'amber';
+    if (rawStatus === "missing" || rawStatus === "unavailable") {
+      statusText = "MISSING";
+      color = "red";
+    } else if (rawStatus === "delayed" || rawStatus === "noisy") {
+      statusText = "DELAYED";
+      color = "amber";
     }
 
     return {
@@ -128,24 +150,27 @@ export function normalizeSensors(sensors = []) {
       name: defSlot.name,
       status: statusText,
       color,
-      lastUpdate: realSensor.ageSec ? `${realSensor.ageSec}s ago` : 'Just now',
-      quality: realSensor.imputed ? 'Imputed (No packet)' : '100%'
+      lastUpdate: realSensor.ageSec ? `${realSensor.ageSec}s ago` : "Just now",
+      quality: realSensor.imputed ? "Imputed (No packet)" : "100%",
     };
   });
 }
 
 export function normalizeIncident(inc) {
-  const severity = (inc.severity || 'INFO').toUpperCase();
-  let colorClass = 'blue';
-  if (severity === 'CRITICAL') colorClass = 'red';
-  else if (severity === 'WARNING') colorClass = 'amber';
+  const severity = (inc.severity || "INFO").toUpperCase();
+  let colorClass = "blue";
+  if (severity === "CRITICAL") colorClass = "red";
+  else if (severity === "WARNING") colorClass = "amber";
 
   return {
     id: inc.id || inc._id,
     severity,
     time: formatMissionTime(inc.openedAtSim || 0),
-    title: inc.headline || inc.title || 'Spacecraft Anomaly',
-    description: inc.explanation?.headline || inc.description || 'Telemetry variance detected',
-    colorClass
+    title: inc.headline || inc.title || "Spacecraft Anomaly",
+    description:
+      inc.explanation?.headline ||
+      inc.description ||
+      "Telemetry variance detected",
+    colorClass,
   };
 }

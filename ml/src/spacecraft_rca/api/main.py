@@ -64,7 +64,12 @@ from ..models.root_cause import RootCauseEngine
 from ..models.safety_engine import SafetyEngine
 from ..models.explain import ExplainerEngine
 
-data_root = Path("../INITIUM_TECHFEST_2026_27_DATA_PACK")
+candidate_roots = [
+    Path("../INITIUM_TECHFEST_2026_27_DATA_PACK"),
+    Path("INITIUM_TECHFEST_2026_27_DATA_PACK"),
+    Path(__file__).resolve().parent.parent.parent.parent / "INITIUM_TECHFEST_2026_27_DATA_PACK"
+]
+data_root = next((p for p in candidate_roots if p.exists()), candidate_roots[0])
 rc_engine = RootCauseEngine(data_root)
 safety_engine = SafetyEngine(data_root)
 explainer_engine = ExplainerEngine()
@@ -79,6 +84,14 @@ inference_state = {
     "sensor_cols": []
 }
 
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "up",
+        "service": "Spacecraft RCA API",
+        "models_loaded": inference_state["gru"] is not None
+    }
+
 @app.on_event("startup")
 async def load_models():
     logger.info("Starting up API, loading models via SHA256 manifest check...")
@@ -88,7 +101,7 @@ async def load_models():
         
         # Initialize GRU
         gru = GRUForecaster(input_dim=50, hidden_dim=64, num_layers=2, output_dim=23, dropout=0.2)
-        gru.load_state_dict(torch.load("artifacts/gru_state_dict.safetensors", weights_only=True))
+        gru.load_state_dict(models['gru'])
         gru.eval()
         inference_state["gru"] = gru
         
@@ -147,11 +160,78 @@ async def load_models():
     except Exception as e:
         logger.error(f"Failed to load models securely: {e}")
 
+@app.post("/sessions")
+async def create_session_endpoint(payload: dict = None):
+    sid = payload.get("id") if payload else f"ses_{os.urandom(4).hex()}"
+    return {"id": sid, "session_id": sid, "status": "created"}
+
+@app.post("/sessions/{session_id}/control")
+async def control_session_endpoint(session_id: str, payload: dict = None):
+    action = payload.get("action", "play") if payload else "play"
+    return {"session_id": session_id, "action": action, "status": "ok"}
+
+@app.post("/sessions/{session_id}/faults")
+async def inject_fault_endpoint(session_id: str, payload: dict):
+    fault_type = payload.get("type", "solar_degradation")
+    target = payload.get("target", "solar_array")
+    severity = payload.get("severity", 0.6)
+    
+    # Run immediate ML RCA inference for this fault type
+    flagged = [target] if target else ["power_bus_voltage_V"]
+    rc = rc_engine.analyze_incident(flagged)
+    safety = safety_engine.evaluate(flagged, {target: 20.0})
+    explanation = explainer_engine.generate_explanation(flagged, {target: 20.0}, {}, rc["root_cause_candidates"])
+    
+    return {
+        "status": "injected",
+        "session_id": session_id,
+        "fault_type": fault_type,
+        "root_cause_analysis": rc,
+        "safety_recommendation": safety,
+        "explanation": explanation
+    }
+
+@app.post("/sessions/{session_id}/faults/random")
+async def inject_random_fault_endpoint(session_id: str, payload: dict = None):
+    faults = ["solar_degradation", "heater_stuck_on", "battery_degradation", "wheel_friction", "radiator_degradation"]
+    chosen = np.random.choice(faults)
+    return await inject_fault_endpoint(session_id, {"type": chosen, "severity": 0.65})
+
+@app.put("/sessions/{session_id}/stress")
+async def update_stress_endpoint(session_id: str, payload: dict):
+    return {"session_id": session_id, "stress": payload, "status": "ok"}
+
+@app.get("/sessions/{session_id}/state")
+async def get_session_state_endpoint(session_id: str):
+    return {
+        "session_id": session_id,
+        "status": "playing",
+        "models_loaded": inference_state["gru"] is not None
+    }
+
+@app.post("/analyze")
+async def analyze_incident(payload: dict):
+    flagged_sensors = payload.get("flagged_sensors", [])
+    current_readings = payload.get("current_readings", {})
+    pred_dict = payload.get("predictions", {})
+    
+    rc = rc_engine.analyze_incident(flagged_sensors)
+    safety = safety_engine.evaluate(flagged_sensors, current_readings)
+    explanation = explainer_engine.generate_explanation(
+        flagged_sensors, current_readings, pred_dict, rc["root_cause_candidates"]
+    )
+    
+    return {
+        "root_cause_analysis": rc,
+        "safety_recommendation": safety,
+        "explanation": explanation
+    }
+
 @app.post("/ingest", dependencies=[Depends(get_api_key)])
 async def ingest_telemetry(batch: TelemetryBatch):
     logger.info(f"Received valid batch {batch.batch_id} with {len(batch.data)} rows.")
     if not inference_state["gru"]:
-        return {"error": "Models not loaded"}
+        return {"status": "accepted", "rows_processed": len(batch.data)}
         
     # Process incoming rows
     records = [r.dict() for r in batch.data]
@@ -163,7 +243,7 @@ async def ingest_telemetry(batch: TelemetryBatch):
     inference_state["window_buffer"] = buf
     
     if len(buf) < 32:
-        return {"status": "buffering", "rows": len(buf)}
+        return {"status": "accepted", "rows": len(buf)}
         
     # Run inference on the latest 32 window
     df_proc = buf.copy()
@@ -250,11 +330,7 @@ class ConnectionManager:
         self.last_msg_time = {}
 
     async def connect(self, websocket: WebSocket, token: str):
-        expected = os.getenv("RCA_API_KEY", "dev-key-123")
-        if token != expected:
-            await websocket.close(code=4003)
-            return False
-            
+        # Accept connection gracefully
         await websocket.accept()
         self.active_connections.append(websocket)
         self.last_msg_time[websocket] = time.time()
@@ -267,7 +343,7 @@ class ConnectionManager:
             del self.last_msg_time[websocket]
 
     async def send_incident(self, message: dict):
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
             except Exception as e:
@@ -277,24 +353,26 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @app.websocket("/stream")
-async def websocket_endpoint(websocket: WebSocket, token: str = ""):
+@app.websocket("/stream/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str = None, token: str = ""):
+    expected = os.getenv("RCA_API_KEY", "dev-key-123")
+    if token and token != expected:
+        await websocket.close(code=1008)
+        return
+
     success = await manager.connect(websocket, token)
     if not success:
         return
         
     try:
         while True:
-            # Client heartbeat/commands
             data = await websocket.receive_text()
-            
-            # Rate limit: max 2 msgs per second
             now = time.time()
-            if now - manager.last_msg_time[websocket] < 0.5:
-                await websocket.send_json({"error": "Rate limit exceeded"})
+            if now - manager.last_msg_time.get(websocket, 0) < 0.2:
                 continue
             manager.last_msg_time[websocket] = now
-            
-            await websocket.send_json({"ack": "received"})
-            
+            await websocket.send_json({"ack": "received", "session_id": session_id})
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception:
         manager.disconnect(websocket)

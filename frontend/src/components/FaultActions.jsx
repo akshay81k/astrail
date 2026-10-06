@@ -1,12 +1,12 @@
-import React from 'react';
-import { Zap, Dices, CheckCircle2, AlertCircle } from 'lucide-react';
+import React from "react";
+import { Zap, Dices, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function FaultActions({
   onInjectFault,
   onInjectRandomFault,
   injecting,
   injectSuccess,
-  errorMsg
+  errorMsg,
 }) {
   return (
     <div className="card fault-actions-card">
@@ -14,7 +14,9 @@ export default function FaultActions({
         <div className="step-number">5</div>
         <div>
           <h2 className="card-step-title">Actions</h2>
-          <p className="card-step-subtitle">Inject the configured fault or generate a random fault</p>
+          <p className="card-step-subtitle">
+            Inject the configured fault or generate a random fault
+          </p>
         </div>
       </div>
 
@@ -26,35 +28,9 @@ export default function FaultActions({
       )}
 
       {injectSuccess && (
-        <div className="action-success-banner" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CheckCircle2 size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
-            <span style={{ fontWeight: 500 }}>Fault injected &amp; actively altering telemetry dynamics!</span>
-          </div>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-            <a
-              href="/"
-              style={{
-                fontSize: '12px',
-                color: '#3b82f6',
-                textDecoration: 'underline',
-                fontWeight: 600
-              }}
-            >
-              📊 Observe Live Graphs on Dashboard &rarr;
-            </a>
-            <a
-              href="/incidents"
-              style={{
-                fontSize: '12px',
-                color: '#ef4444',
-                textDecoration: 'underline',
-                fontWeight: 600
-              }}
-            >
-              ⚠️ View In Incidents &rarr;
-            </a>
-          </div>
+        <div className="action-success-banner">
+          <CheckCircle2 size={16} />
+          <span>Fault injected successfully into simulator session!</span>
         </div>
       )}
 
@@ -65,7 +41,7 @@ export default function FaultActions({
           disabled={injecting}
         >
           <Zap size={18} />
-          <span>{injecting ? 'Injecting...' : 'Inject Fault'}</span>
+          <span>{injecting ? "Injecting..." : "Inject Fault"}</span>
         </button>
 
         <button

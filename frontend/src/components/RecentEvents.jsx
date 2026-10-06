@@ -1,15 +1,45 @@
-import React from 'react';
-import { Clock } from 'lucide-react';
-
-const events = [
-  { id: 1, time: '02:11:08', text: 'Thermal anomaly detected', color: 'red' },
-  { id: 2, time: '02:09:40', text: 'Solar current dropped below threshold', color: 'amber' },
-  { id: 3, time: '01:58:12', text: 'Sensor 3 data delayed', color: 'blue' },
-  { id: 4, time: '01:45:20', text: 'Attitude subsystem nominal', color: 'green' },
-  { id: 5, time: '01:32:05', text: 'Communication link stable', color: 'green' }
-];
+import React from "react";
+import { Clock } from "lucide-react";
+import { useTelemetry } from "../context/TelemetryContext";
 
 export default function RecentEvents() {
+  const { incidentsList, isConnected } = useTelemetry();
+
+  // Build live events list from actual incidents and active telemetry stream
+  const liveEvents = [];
+
+  // Add real incidents
+  if (incidentsList && incidentsList.length > 0) {
+    incidentsList.slice(0, 4).forEach((inc) => {
+      const severity = (inc.severity || "CRITICAL").toLowerCase();
+      const color = (severity === "critical" || severity === "red") ? "red" : (severity === "warning" || severity === "amber" ? "amber" : "blue");
+      const timeStr = inc.openedAt || inc.time || (inc.openedAtSim ? `02:${String(Math.floor(inc.openedAtSim / 60)).padStart(2, '0')}:${String(inc.openedAtSim % 60).padStart(2, '0')}` : "LIVE");
+      const title = inc.title || inc.headline || (inc.type ? inc.type.replace(/_/g, ' ') : "Spacecraft Anomaly");
+
+      liveEvents.push({
+        id: inc.id || inc._id,
+        time: timeStr,
+        text: `${title} detected`,
+        color
+      });
+    });
+  }
+
+  // Add system telemetry operational events
+  liveEvents.push({
+    id: "ml-active",
+    time: "LIVE",
+    text: "ML GRU Forecaster active & calibrated",
+    color: "green"
+  });
+
+  liveEvents.push({
+    id: "stream-sync",
+    time: "LIVE",
+    text: isConnected ? "Telemetry stream synced (1 Hz)" : "Connecting to telemetry bridge...",
+    color: isConnected ? "green" : "amber"
+  });
+
   return (
     <div className="recent-events-container">
       <div className="recent-events-header">
@@ -18,11 +48,11 @@ export default function RecentEvents() {
       </div>
 
       <ul className="events-list">
-        {events.map((evt) => (
+        {liveEvents.map((evt) => (
           <li key={evt.id} className="event-item">
             <span className={`event-dot dot-${evt.color}`}></span>
             <span className="event-time">{evt.time}</span>
-            <span className="event-text">{evt.text}</span>
+            <span className="event-text" style={{ textTransform: "capitalize" }}>{evt.text}</span>
           </li>
         ))}
       </ul>

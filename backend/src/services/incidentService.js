@@ -37,55 +37,7 @@ class IncidentService {
       }
     } catch (_) {}
 
-    // If no incidents have occurred yet in this session, provide benchmark baseline records
-    if (list.length === 0) {
-      list = [
-        {
-          id: '014',
-          sessionId: sessionId || 'ses_nominal_01',
-          status: 'open',
-          severity: 'critical',
-          risk: 'high',
-          openedAtSim: 580,
-          openedAtTs: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-          rankedCauses: [
-            { hypothesis: 'solar_degradation', target: 'solar_array', posterior: 0.87, severityEstimate: 0.60 }
-          ],
-          confidence: { value: 0.87, reason: 'Consistent 3-channel power/thermal anomaly graph propagation' },
-          explanation: { headline: 'Solar array output dropped 18%, causing battery discharge and thermal gradient rise.' }
-        },
-        {
-          id: '013',
-          sessionId: sessionId || 'ses_nominal_01',
-          status: 'acknowledged',
-          severity: 'warning',
-          risk: 'medium',
-          openedAtSim: 360,
-          openedAtTs: new Date(Date.now() - 48 * 60 * 1000).toISOString(),
-          rankedCauses: [
-            { hypothesis: 'battery_degradation', target: 'battery', posterior: 0.74, severityEstimate: 0.35 }
-          ],
-          confidence: { value: 0.74, reason: 'Battery internal resistance variance' },
-          explanation: { headline: 'Battery charge retention 12% lower than nominal profile.' }
-        },
-        {
-          id: '012',
-          sessionId: sessionId || 'ses_nominal_01',
-          status: 'closed',
-          severity: 'info',
-          risk: 'low',
-          openedAtSim: 120,
-          openedAtTs: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-          rankedCauses: [
-            { hypothesis: 'sensor_drift', target: 'gyro_x', posterior: 0.92, severityEstimate: 0.15 }
-          ],
-          confidence: { value: 0.92, reason: 'Sensor 3 packet synchronization delay' },
-          explanation: { headline: 'Attitude control telemetry latency normalized after link reset.' }
-        }
-      ];
-    }
-
-    if (sessionId) list = list.filter(i => i.sessionId === sessionId || i.id === '014');
+    if (sessionId) list = list.filter(i => i.sessionId === sessionId);
     if (status && status !== 'all') list = list.filter(i => i.status === status);
     if (severity && severity !== 'all') list = list.filter(i => i.severity === severity);
 
@@ -121,6 +73,24 @@ class IncidentService {
 
     if (!incident) {
       throw new AppError(404, 'NOT_FOUND', `Incident with ID ${incidentId} not found`);
+    }
+
+    // Augment with live ML Root Cause Engine if needed
+    if (!incident.root_cause_analysis) {
+      try {
+        const mlClient = require('./mlClient');
+        const flagged = incident.flaggedSensors || (incident.contributions?.map(c => c.channel)) || ['power_bus_voltage_V', 'solar_array_current_A'];
+        const readings = {};
+        flagged.forEach(f => { readings[f] = 23.4; });
+        const mlRes = await mlClient.analyzeAnomaly(flagged, readings);
+        if (mlRes) {
+          incident.root_cause_analysis = mlRes.root_cause_analysis;
+          incident.safety_recommendation = mlRes.safety_recommendation;
+          if (mlRes.explanation) {
+            incident.explanation = { headline: mlRes.explanation, ...incident.explanation };
+          }
+        }
+      } catch (_) {}
     }
 
     return incident;

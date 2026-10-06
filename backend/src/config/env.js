@@ -13,9 +13,10 @@ const config = {
   mongoUri: process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/astrial_shm',
   mongoDbName: process.env.MONGO_DB_NAME || 'astrial_shm',
 
-  mlBaseUrl: process.env.ML_BASE_URL || 'http://127.0.0.1:8000/ml/v1',
-  mlWsUrl: process.env.ML_WS_URL || 'ws://127.0.0.1:8000/ml/v1/ws/stream',
-  mlTimeoutMs: parseInt(process.env.ML_TIMEOUT_MS, 10) || 2500,
+  mlBaseUrl: process.env.ML_BASE_URL || 'http://127.0.0.1:8000',
+  mlWsUrl: process.env.ML_WS_URL || 'ws://127.0.0.1:8000/stream?token=dev-key-123',
+  mlApiKey: process.env.ML_API_KEY || 'dev-key-123',
+  mlTimeoutMs: parseInt(process.env.ML_TIMEOUT_MS, 10) || 5000,
 
   uploadMaxMb: parseInt(process.env.UPLOAD_MAX_MB, 10) || 50,
   uploadDir: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),

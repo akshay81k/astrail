@@ -1,39 +1,46 @@
-import React from 'react';
-import { Zap, Thermometer, Compass, Wifi, ChevronRight, Activity } from 'lucide-react';
+import React from "react";
+import {
+  Zap,
+  Thermometer,
+  Compass,
+  Wifi,
+  ChevronRight,
+  Activity,
+} from "lucide-react";
 
 const subsystems = [
   {
-    id: 'power',
-    name: 'POWER',
+    id: "power",
+    name: "POWER",
     percentage: 68,
-    status: 'AMBER',
+    status: "AMBER",
     icon: Zap,
-    statusClass: 'amber'
+    statusClass: "amber",
   },
   {
-    id: 'thermal',
-    name: 'THERMAL',
+    id: "thermal",
+    name: "THERMAL",
     percentage: 92,
-    status: 'RED',
+    status: "RED",
     icon: Thermometer,
-    statusClass: 'red'
+    statusClass: "red",
   },
   {
-    id: 'attitude',
-    name: 'ATTITUDE',
+    id: "attitude",
+    name: "ATTITUDE",
     percentage: 88,
-    status: 'GREEN',
+    status: "GREEN",
     icon: Compass,
-    statusClass: 'green'
+    statusClass: "green",
   },
   {
-    id: 'comms',
-    name: 'COMMS',
+    id: "comms",
+    name: "COMMS",
     percentage: 96,
-    status: 'GREEN',
+    status: "GREEN",
     icon: Wifi,
-    statusClass: 'green'
-  }
+    statusClass: "green",
+  },
 ];
 
 export default function SubsystemHealth() {
@@ -48,7 +55,10 @@ export default function SubsystemHealth() {
         {subsystems.map((sub) => {
           const Icon = sub.icon;
           return (
-            <div key={sub.id} className={`subsystem-card status-${sub.statusClass}`}>
+            <div
+              key={sub.id}
+              className={`subsystem-card status-${sub.statusClass}`}
+            >
               <div className="card-top">
                 <div className={`sub-icon-wrapper bg-${sub.statusClass}`}>
                   <Icon size={20} className={`icon-${sub.statusClass}`} />

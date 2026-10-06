@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: spacecraft_rca
 Version: 0.1.0
 Summary: Explainable On-Board Spacecraft Anomaly & Root-Cause Engine
-Requires-Python: >=3.13
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 Requires-Dist: torch>=2.2.0
 Requires-Dist: safetensors>=0.4.2

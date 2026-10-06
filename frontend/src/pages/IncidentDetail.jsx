@@ -1,60 +1,63 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { incidentApi } from '../api/incidentApi';
-import Sidebar from '../components/Sidebar';
-import Footer from '../components/Footer';
-import IncidentHeader from '../components/IncidentHeader';
-import RootCauseGraph from '../components/RootCauseGraph';
-import PropagationTimeline from '../components/PropagationTimeline';
-import RankedCauses from '../components/RankedCauses';
-import IncidentExplanation from '../components/IncidentExplanation';
-import EvidenceList from '../components/EvidenceList';
-import RecommendedActions from '../components/RecommendedActions';
-import IncidentActions from '../components/IncidentActions';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { incidentApi } from "../api/incidentApi";
+import Sidebar from "../components/Sidebar";
+import Footer from "../components/Footer";
+import IncidentHeader from "../components/IncidentHeader";
+import RootCauseGraph from "../components/RootCauseGraph";
+import PropagationTimeline from "../components/PropagationTimeline";
+import RankedCauses from "../components/RankedCauses";
+import IncidentExplanation from "../components/IncidentExplanation";
+import EvidenceList from "../components/EvidenceList";
+import RecommendedActions from "../components/RecommendedActions";
+import IncidentActions from "../components/IncidentActions";
 
 const FALLBACK_INCIDENT_014 = {
-  id: '014',
-  severity: 'CRITICAL',
-  title: 'Thermal anomaly detected',
-  detectedTime: '02:09:40',
-  detectedDate: 'Oct 05, 2026',
+  id: "014",
+  severity: "CRITICAL",
+  title: "Thermal anomaly detected",
+  detectedTime: "02:09:40",
+  detectedDate: "Oct 05, 2026",
   confidence: {
     value: 0.82,
-    was: '92%',
-    reason: 'Sensor 3 delayed for 40 seconds'
+    was: "92%",
+    reason: "Sensor 3 delayed for 40 seconds",
   },
-  duration: '14m 36s',
-  statusNote: '(Ongoing)',
+  duration: "14m 36s",
+  statusNote: "(Ongoing)",
   explanation: {
-    title: 'Why Solar Array?',
-    text: 'Solar current fell 18% below forecast at 02:09:40, then battery charge dropped 35 seconds later and battery temperature rose 6°C at 02:11:08. The solar array deviated first and the dependency graph links it to both downstream signals.'
+    title: "Why Solar Array?",
+    text: "Solar current fell 18% below forecast at 02:09:40, then battery charge dropped 35 seconds later and battery temperature rose 6°C at 02:11:08. The solar array deviated first and the dependency graph links it to both downstream signals.",
   },
   evidence: [
-    'Solar current deviated first (02:09:40)',
-    'Battery charge responded after 35 s',
-    'Thermal response followed (02:11:08)',
-    'Dependency graph supports causal direction'
+    "Solar current deviated first (02:09:40)",
+    "Battery charge responded after 35 s",
+    "Thermal response followed (02:11:08)",
+    "Dependency graph supports causal direction",
   ],
   recommendations: [
     {
       id: 1,
       number: 1,
-      title: 'Reduce non-essential load',
-      description: 'Lower payload and auxiliary systems load to reduce power demand.'
+      title: "Reduce non-essential load",
+      description:
+        "Lower payload and auxiliary systems load to reduce power demand.",
     },
     {
       id: 2,
       number: 2,
-      title: 'Check heater status',
-      description: 'Verify heater control signals and switch to redundant heater if available.'
+      title: "Check heater status",
+      description:
+        "Verify heater control signals and switch to redundant heater if available.",
     },
     {
       id: 3,
       number: 3,
-      title: 'Enter safe mode if it persists > 10 min',
-      description: 'If temperature continues to rise, enter safe mode to prevent further damage.'
-    }
-  ]
+      title: "Enter safe mode if it persists > 10 min",
+      description:
+        "If temperature continues to rise, enter safe mode to prevent further damage.",
+    },
+  ],
 };
 
 export default function IncidentDetail() {
@@ -76,7 +79,7 @@ export default function IncidentDetail() {
         setError(null);
       } catch (err) {
         // Fallback to default incident details if endpoint returns empty/404 for mock demo
-        setIncident({ ...FALLBACK_INCIDENT_014, id: incidentId || '014' });
+        setIncident({ ...FALLBACK_INCIDENT_014, id: incidentId || "014" });
         setError(null);
       } finally {
         setLoading(false);
@@ -91,10 +94,10 @@ export default function IncidentDetail() {
 
   const handleEventSelect = (eventId) => {
     setSelectedEventId(eventId);
-    if (eventId === 'e1') setSelectedNodeId('solar');
-    if (eventId === 'e2') setSelectedNodeId('battery');
-    if (eventId === 'e3') setSelectedNodeId('thermal');
-    if (eventId === 'e4') setSelectedNodeId('solar');
+    if (eventId === "e1") setSelectedNodeId("solar");
+    if (eventId === "e2") setSelectedNodeId("battery");
+    if (eventId === "e3") setSelectedNodeId("thermal");
+    if (eventId === "e4") setSelectedNodeId("solar");
   };
 
   const activeIncident = incident || FALLBACK_INCIDENT_014;
@@ -132,19 +135,25 @@ export default function IncidentDetail() {
 
                   <RankedCauses
                     causes={activeIncident.rankedCauses}
-                    onCauseSelect={(cause) => handleNodeSelect(cause.nodeId || 'solar')}
+                    onCauseSelect={(cause) =>
+                      handleNodeSelect(cause.nodeId || "solar")
+                    }
                   />
                 </div>
               </div>
 
               <div className="incident-grid-bottom">
                 <div className="explanation-evidence-col">
-                  <IncidentExplanation explanation={activeIncident.explanation} />
+                  <IncidentExplanation
+                    explanation={activeIncident.explanation}
+                  />
                   <EvidenceList evidence={activeIncident.evidence} />
                 </div>
 
                 <div className="actions-recommendations-col">
-                  <RecommendedActions actions={activeIncident.recommendations} />
+                  <RecommendedActions
+                    actions={activeIncident.recommendations}
+                  />
 
                   <div className="bottom-action-buttons-wrapper">
                     <IncidentActions incidentId={activeIncident.id} />

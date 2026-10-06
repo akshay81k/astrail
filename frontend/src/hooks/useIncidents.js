@@ -80,47 +80,16 @@ export function useIncidents() {
   const [sortDir, setSortDir] = useState('desc');
   const [page, setPage] = useState(1);
 
-  const FALLBACK_INCIDENTS = [
-    {
-      id: '014',
-      status: 'open',
-      severity: 'critical',
-      openedAtTs: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
-      rankedCauses: [{ hypothesis: 'Solar Array Degradation' }],
-      confidence: { value: 0.87 }
-    },
-    {
-      id: '013',
-      status: 'acknowledged',
-      severity: 'warning',
-      openedAtTs: new Date(Date.now() - 48 * 60 * 1000).toISOString(),
-      rankedCauses: [{ hypothesis: 'Battery Degradation' }],
-      confidence: { value: 0.74 }
-    },
-    {
-      id: '012',
-      status: 'closed',
-      severity: 'info',
-      openedAtTs: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-      rankedCauses: [{ hypothesis: 'Sensor 3 Synchronization Lag' }],
-      confidence: { value: 0.92 }
-    }
-  ];
-
   const fetchIncidents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await incidentApi.listIncidents({ limit: 500 });
       let data = res?.data ?? (Array.isArray(res) ? res : []);
-      if (data.length === 0) {
-        data = FALLBACK_INCIDENTS;
-      }
       setRaw(data.map(normalise));
     } catch (e) {
-      // Graceful fallback to baseline incidents if backend REST is warming up
-      setRaw(FALLBACK_INCIDENTS.map(normalise));
-      setError(null);
+      setRaw([]);
+      setError(e?.message || 'Failed to load incidents');
     } finally {
       setLoading(false);
     }

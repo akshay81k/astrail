@@ -1,66 +1,80 @@
-import React, { useState, useRef } from 'react';
-import { Maximize2, RotateCcw, Sun, Battery, Thermometer, Disc, BarChart2, Info } from 'lucide-react';
+import React, { useState, useRef } from "react";
+import {
+  Maximize2,
+  RotateCcw,
+  Sun,
+  Battery,
+  Thermometer,
+  Disc,
+  BarChart2,
+  Info,
+} from "lucide-react";
 
 const DEFAULT_NODES = [
   {
-    id: 'solar',
-    label: 'SOLAR ARRAY',
-    status: 'SOURCE',
-    statusType: 'source', // source, affected, normal
+    id: "solar",
+    label: "SOLAR ARRAY",
+    status: "SOURCE",
+    statusType: "source", // source, affected, normal
     x: 230,
     y: 20,
     icon: Sun,
     metrics: [
-      { label: 'Current:', value: '2.1 A', highlight: true },
-      { label: 'Expected:', value: '4.0 A' },
-      { label: 'Deviation:', value: '-18%', highlight: true }
-    ]
+      { label: "Current:", value: "2.1 A", highlight: true },
+      { label: "Expected:", value: "4.0 A" },
+      { label: "Deviation:", value: "-18%", highlight: true },
+    ],
   },
   {
-    id: 'battery',
-    label: 'BATTERY',
-    status: 'AFFECTED',
-    statusType: 'affected',
+    id: "battery",
+    label: "BATTERY",
+    status: "AFFECTED",
+    statusType: "affected",
     x: 230,
     y: 190,
     icon: Battery,
     metrics: [
-      { label: 'Charge:', value: '65%', highlight: true },
-      { label: 'Expected:', value: '100%' },
-      { label: 'Deviation:', value: '-35%', highlight: true }
-    ]
+      { label: "Charge:", value: "65%", highlight: true },
+      { label: "Expected:", value: "100%" },
+      { label: "Deviation:", value: "-35%", highlight: true },
+    ],
   },
   {
-    id: 'thermal',
-    label: 'THERMAL',
-    status: 'AFFECTED',
-    statusType: 'affected',
+    id: "thermal",
+    label: "THERMAL",
+    status: "AFFECTED",
+    statusType: "affected",
     x: 350,
     y: 350,
     icon: Thermometer,
     metrics: [
-      { label: 'Temp:', value: '42.1°C', highlight: true },
-      { label: 'Expected:', value: '36.0°C' },
-      { label: 'Deviation:', value: '+6°C', highlight: true }
-    ]
+      { label: "Temp:", value: "42.1°C", highlight: true },
+      { label: "Expected:", value: "36.0°C" },
+      { label: "Deviation:", value: "+6°C", highlight: true },
+    ],
   },
   {
-    id: 'wheel',
-    label: 'REACTION WHEEL',
-    status: 'NORMAL',
-    statusType: 'normal',
+    id: "wheel",
+    label: "REACTION WHEEL",
+    status: "NORMAL",
+    statusType: "normal",
     x: 80,
     y: 350,
     icon: Disc,
     metrics: [
-      { label: 'Speed:', value: '3200 RPM' },
-      { label: 'Expected:', value: '3200 RPM' },
-      { label: 'Deviation:', value: '0%' }
-    ]
-  }
+      { label: "Speed:", value: "3200 RPM" },
+      { label: "Expected:", value: "3200 RPM" },
+      { label: "Deviation:", value: "0%" },
+    ],
+  },
 ];
 
-export default function RootCauseGraph({ nodes: customNodes, edges: customEdges, selectedNodeId, onNodeSelect }) {
+export default function RootCauseGraph({
+  nodes: customNodes,
+  edges: customEdges,
+  selectedNodeId,
+  onNodeSelect,
+}) {
   const [nodePositions, setNodePositions] = useState(() => {
     if (customNodes && customNodes.length > 0) {
       return customNodes;
@@ -78,11 +92,11 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
     e.stopPropagation();
     onNodeSelect && onNodeSelect(nodeId);
     setDraggingNode(nodeId);
-    const node = nodePositions.find(n => n.id === nodeId);
+    const node = nodePositions.find((n) => n.id === nodeId);
     if (node) {
       dragOffset.current = {
         x: e.clientX - node.x,
-        y: e.clientY - node.y
+        y: e.clientY - node.y,
       };
     }
   };
@@ -91,8 +105,10 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
     if (draggingNode) {
       const newX = e.clientX - dragOffset.current.x;
       const newY = e.clientY - dragOffset.current.y;
-      setNodePositions(prev =>
-        prev.map(n => (n.id === draggingNode ? { ...n, x: newX, y: newY } : n))
+      setNodePositions((prev) =>
+        prev.map((n) =>
+          n.id === draggingNode ? { ...n, x: newX, y: newY } : n,
+        ),
       );
     }
   };
@@ -113,11 +129,13 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
   };
 
   // Find node by id
-  const getNode = (id) => nodePositions.find(n => n.id === id) || DEFAULT_NODES.find(n => n.id === id);
-  const solar = getNode('solar') || nodePositions[0];
-  const battery = getNode('battery') || nodePositions[1];
-  const thermal = getNode('thermal') || nodePositions[2];
-  const wheel = getNode('wheel') || nodePositions[3];
+  const getNode = (id) =>
+    nodePositions.find((n) => n.id === id) ||
+    DEFAULT_NODES.find((n) => n.id === id);
+  const solar = getNode("solar") || nodePositions[0];
+  const battery = getNode("battery") || nodePositions[1];
+  const thermal = getNode("thermal") || nodePositions[2];
+  const wheel = getNode("wheel") || nodePositions[3];
 
   return (
     <div className="graph-card">
@@ -159,14 +177,30 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
         ref={containerRef}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        style={{ cursor: draggingNode ? 'grabbing' : 'default' }}
+        style={{ cursor: draggingNode ? "grabbing" : "default" }}
       >
         <svg className="graph-svg-layer" width="100%" height="520">
           <defs>
-            <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker
+              id="arrow-red"
+              viewBox="0 0 10 10"
+              refX="6"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
             </marker>
-            <marker id="arrow-gray" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker
+              id="arrow-gray"
+              viewBox="0 0 10 10"
+              refX="6"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
             </marker>
           </defs>
@@ -257,23 +291,28 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
         {/* Nodes Layer */}
         <div
           className="graph-nodes-layer"
-          style={{ transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)` }}
+          style={{
+            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+          }}
         >
           {nodePositions.map((node) => {
             const IconComp = node.icon || Sun;
             const isSelected = selectedNodeId === node.id;
-            const statusClass = node.statusType || 'normal';
+            const statusClass = node.statusType || "normal";
 
             return (
               <div
                 key={node.id}
-                className={`graph-node-card ${statusClass} ${isSelected ? 'selected' : ''}`}
+                className={`graph-node-card ${statusClass} ${isSelected ? "selected" : ""}`}
                 style={{ left: `${node.x}px`, top: `${node.y}px` }}
                 onMouseDown={(e) => handleMouseDown(e, node.id)}
               >
                 <div className="node-card-header">
                   <div className="node-icon-title">
-                    <IconComp size={20} className={`node-icon ${statusClass}`} />
+                    <IconComp
+                      size={20}
+                      className={`node-icon ${statusClass}`}
+                    />
                     <span className="node-title">{node.label}</span>
                   </div>
                   <span className={`node-status-badge ${statusClass}`}>
@@ -286,7 +325,9 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
                     node.metrics.map((m, idx) => (
                       <div className="node-metric-row" key={idx}>
                         <span className="metric-name">{m.label}</span>
-                        <span className={`metric-val ${m.highlight ? statusClass : ''}`}>
+                        <span
+                          className={`metric-val ${m.highlight ? statusClass : ""}`}
+                        >
                           {m.value}
                         </span>
                       </div>
@@ -295,14 +336,19 @@ export default function RootCauseGraph({ nodes: customNodes, edges: customEdges,
                     <>
                       <div className="node-metric-row">
                         <span className="metric-name">Value:</span>
-                        <span className="metric-val">{node.value || 'N/A'}</span>
+                        <span className="metric-val">
+                          {node.value || "N/A"}
+                        </span>
                       </div>
                     </>
                   )}
                 </div>
 
                 <div className="node-card-footer">
-                  <BarChart2 size={16} className={`node-spark-icon ${statusClass}`} />
+                  <BarChart2
+                    size={16}
+                    className={`node-spark-icon ${statusClass}`}
+                  />
                 </div>
               </div>
             );

@@ -147,6 +147,37 @@ class MLClient {
     }
   }
 
+  async analyzeAnomaly(flaggedSensors, currentReadings, predictions = {}) {
+    try {
+      const res = await axiosInstance.post('/analyze', {
+        flagged_sensors: flaggedSensors,
+        current_readings: currentReadings,
+        predictions
+      }, {
+        headers: { 'X-API-Key': config.mlApiKey || 'dev-key-123' }
+      });
+      return res.data;
+    } catch (err) {
+      logger.warn('[MLClient] analyzeAnomaly failed:', err.message);
+      return null;
+    }
+  }
+
+  async ingestBatch(batchId, rows) {
+    try {
+      const res = await axiosInstance.post('/ingest', {
+        batch_id: batchId,
+        data: rows
+      }, {
+        headers: { 'X-API-Key': config.mlApiKey || 'dev-key-123' }
+      });
+      return res.data;
+    } catch (err) {
+      logger.warn('[MLClient] ingestBatch failed:', err.message);
+      return null;
+    }
+  }
+
   _handleError(err, operation) {
     logger.warn(`[MLClient] ${operation} failed:`, err.message);
     if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
