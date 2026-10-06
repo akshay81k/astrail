@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "axios": "^1.20.0",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
+    "framer-motion": "^14.0.0",
     "lucide-react": "^1.52.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
-    "recharts": "^3.10.1"
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
