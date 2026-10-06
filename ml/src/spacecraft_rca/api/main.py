@@ -184,6 +184,16 @@ async def ingest_telemetry(batch: TelemetryBatch):
     inference_state["window_buffer"] = buf
     
     if len(buf) < 32:
+        telemetry_data = records[-1].copy()
+        telemetry_data["anomaly_score_max"] = 0.0
+        telemetry_data["anomaly_threshold"] = float(inference_state["best_thresh"])
+        telemetry_data["is_warmup"] = True
+        telemetry_data["warmup_count"] = len(buf)
+        telemetry_data["flagged_sensors"] = []
+        await manager.send_incident({
+            "type": "telemetry",
+            "data": telemetry_data
+        })
         return {"status": "accepted", "state": "buffering", "rows": len(buf)}
         
     # Run inference on the latest 32 window
@@ -264,6 +274,10 @@ async def ingest_telemetry(batch: TelemetryBatch):
     # Broadcast to WebSockets with Real Anomaly Score on Every Frame
     telemetry_data = records[-1].copy()
     telemetry_data["anomaly_score_max"] = float(np.max(score))
+    telemetry_data["anomaly_threshold"] = float(gru_thresh)
+    telemetry_data["is_warmup"] = False
+    telemetry_data["is_alert"] = bool(len(flagged_sensors) > 0)
+    telemetry_data["flagged_sensors"] = flagged_sensors
     
     await manager.send_incident({
         "type": "telemetry",
