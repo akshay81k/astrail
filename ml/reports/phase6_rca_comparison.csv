@@ -1,5 +1,5 @@
 dataset,method,top1,top1_ci_lo,top1_ci_hi,top3,top3_ci_lo,top3_ci_hi
-8 Real Faults,(a) Chance Baseline,0.125,0.0,0.375,0.375,0.0,0.75
+8 Real Faults,(a) Chance Baseline,0.125,0.0,0.375,0.25,0.0,0.625
 8 Real Faults,(b) Largest-Residual,0.625,0.25,0.875,0.75,0.375,1.0
 8 Real Faults,(c) Earliest-Onset,0.5,0.125,0.875,0.75,0.375,1.0
 8 Real Faults,(d) Engine v2 (Peak+Onset),0.625,0.25,0.875,0.75,0.375,1.0

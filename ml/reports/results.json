@@ -693,9 +693,9 @@
         "top1": 0.125,
         "top1_ci_lo": 0.0,
         "top1_ci_hi": 0.375,
-        "top3": 0.375,
+        "top3": 0.25,
         "top3_ci_lo": 0.0,
-        "top3_ci_hi": 0.75
+        "top3_ci_hi": 0.625
       },
       {
         "dataset": "8 Real Faults",
@@ -819,6 +819,264 @@
       "rca_top1": 0.5,
       "rca_top3": 0.625,
       "mean_confidence": 0.7085330098348902
+    }
+  ],
+  "masking_sweep_ridge": [
+    {
+      "masking_pct": 0,
+      "recall": 1.0,
+      "false_episodes_day": 1.579,
+      "rca_top1": 0.75,
+      "rca_top3": 1.0,
+      "mean_confidence": 1.0
+    },
+    {
+      "masking_pct": 10,
+      "recall": 1.0,
+      "false_episodes_day": 2.23,
+      "rca_top1": 0.75,
+      "rca_top3": 1.0,
+      "mean_confidence": 1.0
+    },
+    {
+      "masking_pct": 20,
+      "recall": 1.0,
+      "false_episodes_day": 4.552,
+      "rca_top1": 0.5,
+      "rca_top3": 0.875,
+      "mean_confidence": 0.956
+    },
+    {
+      "masking_pct": 30,
+      "recall": 1.0,
+      "false_episodes_day": 4.831,
+      "rca_top1": 0.75,
+      "rca_top3": 0.875,
+      "mean_confidence": 1.0
+    },
+    {
+      "masking_pct": 40,
+      "recall": 1.0,
+      "false_episodes_day": 4.924,
+      "rca_top1": 0.5,
+      "rca_top3": 0.75,
+      "mean_confidence": 0.997
+    }
+  ],
+  "harder_injector_rca_comparison": [
+    {
+      "method": "(b) Largest-Residual",
+      "top1_accuracy": 1.0,
+      "top1_ci_lower": 1.0,
+      "top1_ci_upper": 1.0,
+      "top3_accuracy": 1.0,
+      "top3_ci_lower": 1.0,
+      "top3_ci_upper": 1.0
+    },
+    {
+      "method": "(c) Earliest-Onset",
+      "top1_accuracy": 1.0,
+      "top1_ci_lower": 1.0,
+      "top1_ci_upper": 1.0,
+      "top3_accuracy": 1.0,
+      "top3_ci_lower": 1.0,
+      "top3_ci_upper": 1.0
+    },
+    {
+      "method": "(v2) Engine v2 (Peak+Onset)",
+      "top1_accuracy": 1.0,
+      "top1_ci_lower": 1.0,
+      "top1_ci_upper": 1.0,
+      "top3_accuracy": 1.0,
+      "top3_ci_lower": 1.0,
+      "top3_ci_upper": 1.0
+    }
+  ],
+  "noise_sweep_detectors": [
+    {
+      "noise_sigma": 0.0,
+      "limit_fp_day": 0.186,
+      "ridge_fp_day": 1.579,
+      "gru_fp_day": 1.858,
+      "noise_injection_function": "df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+    },
+    {
+      "noise_sigma": 0.5,
+      "limit_fp_day": 0.186,
+      "ridge_fp_day": 3.901,
+      "gru_fp_day": 2.322,
+      "noise_injection_function": "df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+    },
+    {
+      "noise_sigma": 1.0,
+      "limit_fp_day": 0.836,
+      "ridge_fp_day": 4.552,
+      "gru_fp_day": 2.787,
+      "noise_injection_function": "df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+    },
+    {
+      "noise_sigma": 2.0,
+      "limit_fp_day": 4.645,
+      "ridge_fp_day": 4.923,
+      "gru_fp_day": 4.273,
+      "noise_injection_function": "df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+    }
+  ],
+  "held_out_classifier_confusion_matrix": {
+    "Pred_noise": {
+      "True_noise": 31,
+      "True_sensor_fault": 2,
+      "True_subsystem_fault": 0
+    },
+    "Pred_sensor_fault": {
+      "True_noise": 2,
+      "True_sensor_fault": 5,
+      "True_subsystem_fault": 0
+    },
+    "Pred_subsystem_fault": {
+      "True_noise": 7,
+      "True_sensor_fault": 1,
+      "True_subsystem_fault": 0
+    }
+  },
+  "real_faults_classification": [
+    {
+      "fault_id": "F001",
+      "fault_description": "thermal_runaway",
+      "true_class": "subsystem_fault",
+      "predicted_class": "sensor_fault",
+      "flagged_channels_count": 0,
+      "duration_rows": 80,
+      "correct": false
+    },
+    {
+      "fault_id": "F002",
+      "fault_description": "battery_degradation",
+      "true_class": "subsystem_fault",
+      "predicted_class": "subsystem_fault",
+      "flagged_channels_count": 2,
+      "duration_rows": 140,
+      "correct": true
+    },
+    {
+      "fault_id": "F003",
+      "fault_description": "reaction_wheel_stiction",
+      "true_class": "subsystem_fault",
+      "predicted_class": "subsystem_fault",
+      "flagged_channels_count": 4,
+      "duration_rows": 70,
+      "correct": true
+    },
+    {
+      "fault_id": "F004",
+      "fault_description": "communication_degradation",
+      "true_class": "subsystem_fault",
+      "predicted_class": "sensor_fault",
+      "flagged_channels_count": 1,
+      "duration_rows": 150,
+      "correct": false
+    },
+    {
+      "fault_id": "F005",
+      "fault_description": "radiation_upset",
+      "true_class": "subsystem_fault",
+      "predicted_class": "subsystem_fault",
+      "flagged_channels_count": 2,
+      "duration_rows": 45,
+      "correct": true
+    },
+    {
+      "fault_id": "F006",
+      "fault_description": "payload_overload",
+      "true_class": "subsystem_fault",
+      "predicted_class": "sensor_fault",
+      "flagged_channels_count": 1,
+      "duration_rows": 180,
+      "correct": false
+    },
+    {
+      "fault_id": "F007",
+      "fault_description": "sensor_bias",
+      "true_class": "sensor_fault",
+      "predicted_class": "subsystem_fault",
+      "flagged_channels_count": 8,
+      "duration_rows": 100,
+      "correct": false
+    },
+    {
+      "fault_id": "F008",
+      "fault_description": "power_bus_instability",
+      "true_class": "subsystem_fault",
+      "predicted_class": "subsystem_fault",
+      "flagged_channels_count": 2,
+      "duration_rows": 120,
+      "correct": true
+    }
+  ],
+  "lead_time_8fault_table": [
+    {
+      "fault_id": "F001",
+      "fault_type": "thermal_runaway",
+      "limit_alarm_row": "none",
+      "our_alert_row": 12030,
+      "lead_rows": "never",
+      "first_aff_limit_cross": "never"
+    },
+    {
+      "fault_id": "F002",
+      "fault_type": "battery_degradation",
+      "limit_alarm_row": "22000",
+      "our_alert_row": 22002,
+      "lead_rows": "-2",
+      "first_aff_limit_cross": "22000 (power_bus_voltage_V)"
+    },
+    {
+      "fault_id": "F003",
+      "fault_type": "reaction_wheel_stiction",
+      "limit_alarm_row": "31001",
+      "our_alert_row": 31003,
+      "lead_rows": "-2",
+      "first_aff_limit_cross": "31001 (gyro_x_deg_s)"
+    },
+    {
+      "fault_id": "F004",
+      "fault_type": "communication_degradation",
+      "limit_alarm_row": "40506",
+      "our_alert_row": 40510,
+      "lead_rows": "-4",
+      "first_aff_limit_cross": "40506 (packet_loss_pct)"
+    },
+    {
+      "fault_id": "F005",
+      "fault_type": "radiation_upset",
+      "limit_alarm_row": "50006",
+      "our_alert_row": 50010,
+      "lead_rows": "-4",
+      "first_aff_limit_cross": "50006 (packet_loss_pct)"
+    },
+    {
+      "fault_id": "F006",
+      "fault_type": "payload_overload",
+      "limit_alarm_row": "61155",
+      "our_alert_row": 61098,
+      "lead_rows": "+57",
+      "first_aff_limit_cross": "61155 (payload_power_W)"
+    },
+    {
+      "fault_id": "F007",
+      "fault_type": "sensor_bias",
+      "limit_alarm_row": "69000",
+      "our_alert_row": 69002,
+      "lead_rows": "-2",
+      "first_aff_limit_cross": "69000 (imu_accel_x_mps2)"
+    },
+    {
+      "fault_id": "F008",
+      "fault_type": "power_bus_instability",
+      "limit_alarm_row": "74501",
+      "our_alert_row": 74503,
+      "lead_rows": "-2",
+      "first_aff_limit_cross": "74501 (power_bus_voltage_V)"
     }
   ]
 }

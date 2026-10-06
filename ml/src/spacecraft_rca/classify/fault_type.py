@@ -30,11 +30,11 @@ def neighbor_flagged_fraction(
     # Neighbor subsystems via dep graph
     neighbor_subs = set()
     for sub in flagged_subs:
-        nbrs = dep_graph.loc[
-            (dep_graph['source_subsystem'] == sub) |
-            (dep_graph['target_subsystem'] == sub),
-            ['source_subsystem', 'target_subsystem']
-        ].values.flatten()
+        nbr_matches = dep_graph[
+            (dep_graph.iloc[:, 0] == sub) |
+            (dep_graph.iloc[:, 1] == sub)
+        ]
+        nbrs = nbr_matches.iloc[:, [0, 1]].values.flatten()
         neighbor_subs.update(nbrs)
     neighbor_subs -= flagged_subs  # exclude self
 

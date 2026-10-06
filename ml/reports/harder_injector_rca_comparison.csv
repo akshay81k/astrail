@@ -1,0 +1,4 @@
+method,top1_accuracy,top1_ci_lower,top1_ci_upper,top3_accuracy,top3_ci_lower,top3_ci_upper
+(b) Largest-Residual,1.0,1.0,1.0,1.0,1.0,1.0
+(c) Earliest-Onset,1.0,1.0,1.0,1.0,1.0,1.0
+(v2) Engine v2 (Peak+Onset),1.0,1.0,1.0,1.0,1.0,1.0

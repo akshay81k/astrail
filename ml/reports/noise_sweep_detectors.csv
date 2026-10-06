@@ -1,0 +1,5 @@
+noise_sigma,limit_fp_day,ridge_fp_day,gru_fp_day,noise_injection_function
+0.0,0.186,1.579,1.858,"df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+0.5,0.186,3.901,2.322,"df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+1.0,0.836,4.552,2.787,"df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"
+2.0,4.645,4.923,4.273,"df[ch] += np.random.normal(0, sigma * std(ch), dur=30)"

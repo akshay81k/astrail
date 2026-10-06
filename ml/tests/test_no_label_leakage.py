@@ -28,7 +28,7 @@ def test_ast_no_label_in_inference_code():
     subscripts, or attributes any ground-truth fault label column.
     """
     src_dir = Path("src/spacecraft_rca")
-    inference_dirs = ["models", "api"]
+    inference_dirs = ["models", "api", "classify", "detect", "explain", "rca", "respond"]
     inference_files = []
     for idir in inference_dirs:
         dir_path = src_dir / idir

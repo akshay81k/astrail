@@ -2,6 +2,7 @@
   "fault_id": "F004",
   "alert_row": 40510,
   "timestamp": "2026-01-29 03:10:00",
+  "event_type": "sensor_fault",
   "anomaly_score_max": 10.215,
   "flagged_sensors": [
     "packet_loss_pct"
@@ -10,7 +11,7 @@
     "root_cause_candidates": [
       {
         "subsystem": "COMMUNICATIONS",
-        "confidence_score": 100.0
+        "confidence_score": 88.5
       }
     ],
     "downstream_impact": [
@@ -19,20 +20,22 @@
     "flagged_subsystems": [
       "COMMUNICATIONS"
     ],
-    "fault_classification": "Subsystem Fault",
+    "event_type": "sensor_fault",
     "confidence_reasons": [
-      "Detector Margin: 1.20",
-      "Data Quality: 1.00",
-      "Rank Gap: 1.00"
+      "Detector Margin: 1.15",
+      "Data Quality: 0.91",
+      "Rank Gap: 0.88"
     ]
   },
   "safety_recommendation": {
     "overall_risk": "MEDIUM",
     "recommended_actions": [
       {
+        "rule_id": "RULE_006",
+        "subsystem": "COMMUNICATIONS",
         "signal": "packet_loss_pct",
         "risk": "MEDIUM",
-        "action": "Investigate anomalous telemetry behavior"
+        "action": "Switch/verify communication path and prioritize critical packets"
       }
     ]
   },
@@ -44,7 +47,8 @@
       "packet_loss_pct": 10.2
     },
     "neighbors_flagged": [
-      "COMPUTE"
+      "comm_rx_dbm",
+      "comm_tx_dbm"
     ],
     "data_quality": {
       "status": "VALID",
@@ -85,17 +89,14 @@
     "runner_up": {
       "subsystem": "NONE",
       "confidence_score": 0.0,
-      "delta_score": 100.0
+      "delta_score": 88.5
     },
     "time_to_limit": {
-      "status": "PROJECTED",
+      "status": "limit already exceeded",
       "confidence_pct": 80,
-      "median_rows": 279.4,
-      "range_80": [
-        209.0,
-        457.3
-      ]
+      "median_rows": null,
+      "range_80": null
     }
   },
-  "explanation": "packet_loss_pct exhibits 10.2 sigma deviation. Data quality is VALID across 21 of 23 channels with operational limit margin is 23.0%. The runner-up candidate NONE has 0.0% confidence with 100.0% margin gap. projected time-to-limit is 279.4 rows (80% range: 209.0 to 457.3 rows)."
+  "explanation": "packet_loss_pct elevated by 10.2 sigma vs forecast. Onset sequence: packet_loss_pct. Primary root cause identified as COMMUNICATIONS subsystem. Data quality is VALID across 21 of 23 channels. Operational hard limit is already exceeded."
 }

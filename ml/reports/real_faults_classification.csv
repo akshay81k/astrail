@@ -1,0 +1,9 @@
+fault_id,fault_description,true_class,predicted_class,flagged_channels_count,duration_rows,correct
+F001,thermal_runaway,subsystem_fault,sensor_fault,0,80,False
+F002,battery_degradation,subsystem_fault,subsystem_fault,2,140,True
+F003,reaction_wheel_stiction,subsystem_fault,subsystem_fault,4,70,True
+F004,communication_degradation,subsystem_fault,sensor_fault,1,150,False
+F005,radiation_upset,subsystem_fault,subsystem_fault,2,45,True
+F006,payload_overload,subsystem_fault,sensor_fault,1,180,False
+F007,sensor_bias,sensor_fault,subsystem_fault,8,100,False
+F008,power_bus_instability,subsystem_fault,subsystem_fault,2,120,True

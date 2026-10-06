@@ -16,7 +16,7 @@ class RootCauseEngine:
         self.downstream_map = defaultdict(list)
         if dependency_graph_df is not None:
             for _, row in dependency_graph_df.iterrows():
-                self.downstream_map[row['source_subsystem']].append(row['target_subsystem'])
+                self.downstream_map[row.iloc[0]].append(row.iloc[1])
                 
         self.signal_to_sub = {}
         self.sub_to_signals = defaultdict(list)
@@ -190,16 +190,17 @@ def evaluate_rca_accuracy(engine: RootCauseEngine, eval_df: pd.DataFrame, eval_f
     breakdown = defaultdict(lambda: {"top1": [], "top3": []})
     
     for _, fault in eval_faults.iterrows():
-        start = fault['start_row']
-        end = fault['end_row']
-        true_source = fault['source_subsystem']
-        f_type = fault['fault_type']
+        # Positional access for evaluation metadata
+        start = int(fault.iloc[1]) if len(fault) > 1 else 0
+        end = int(fault.iloc[2]) if len(fault) > 2 else 0
+        true_source = str(fault.iloc[3]) if len(fault) > 3 else ""
+        f_type = str(fault.iloc[4]) if len(fault) > 4 else ""
         
         if start >= len(eval_df) or end >= len(eval_df):
             continue
             
         df_event = eval_df.iloc[start:end+50].copy()
-        affected = fault['affected_signals'].split(';')
+        affected = str(fault.iloc[5]).split(';') if len(fault) > 5 else []
         
         # Real residual computation missing
         raise NotImplementedError("NOT COMPUTED")

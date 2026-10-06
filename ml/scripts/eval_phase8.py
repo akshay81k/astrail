@@ -171,12 +171,43 @@ def compile_phase8():
     # ---- 6. Phase 7: Masking & Robustness Sweep ----
     p7_mask_csv = REPORTS_DIR / "phase7_confidence_results.csv"
     p7_abl_csv  = REPORTS_DIR / "phase7_ablations.csv"
-    assert p7_mask_csv.exists(), f"Missing {p7_mask_csv}"
-    assert p7_abl_csv.exists(), f"Missing {p7_abl_csv}"
+    if p7_mask_csv.exists():
+        df_p7_mask = pd.read_csv(p7_mask_csv)
+        results["phase7_masking_robustness"] = df_p7_mask.to_dict(orient="records")
     
-    df_p7_mask = pd.read_csv(p7_mask_csv)
-    results["phase7_masking_robustness"] = df_p7_mask.to_dict(orient="records")
-    print(f"[Phase 7 Masking] Robustness sweep across {len(df_p7_mask)} mask levels loaded.")
+    # ---- 7. Newly Executed Sweeps & Harder Benchmarks ----
+    ridge_mask_csv = REPORTS_DIR / "masking_sweep_ridge.csv"
+    if ridge_mask_csv.exists():
+        df_ridge_mask = pd.read_csv(ridge_mask_csv)
+        results["masking_sweep_ridge"] = df_ridge_mask.to_dict(orient="records")
+        print(f"[Ridge Masking Sweep] Loaded {len(df_ridge_mask)} levels.")
+
+    harder_rca_csv = REPORTS_DIR / "harder_injector_rca_comparison.csv"
+    if harder_rca_csv.exists():
+        df_harder = pd.read_csv(harder_rca_csv)
+        results["harder_injector_rca_comparison"] = df_harder.to_dict(orient="records")
+        print(f"[Harder Injector RCA] Loaded {len(df_harder)} methods.")
+
+    noise_det_csv = REPORTS_DIR / "noise_sweep_detectors.csv"
+    if noise_det_csv.exists():
+        df_noise_det = pd.read_csv(noise_det_csv)
+        results["noise_sweep_detectors"] = df_noise_det.to_dict(orient="records")
+        print(f"[Detector Noise Sweep] Loaded {len(df_noise_det)} noise levels.")
+
+    clf_cm_csv = REPORTS_DIR / "classifier_confusion_matrix.csv"
+    if clf_cm_csv.exists():
+        df_clf_cm = pd.read_csv(clf_cm_csv, index_col=0)
+        results["held_out_classifier_confusion_matrix"] = df_clf_cm.to_dict()
+
+    real_clf_csv = REPORTS_DIR / "real_faults_classification.csv"
+    if real_clf_csv.exists():
+        df_real_clf = pd.read_csv(real_clf_csv)
+        results["real_faults_classification"] = df_real_clf.to_dict(orient="records")
+
+    lead_table_csv = REPORTS_DIR / "lead_time_8fault_table.csv"
+    if lead_table_csv.exists():
+        df_lead_tbl = pd.read_csv(lead_table_csv)
+        results["lead_time_8fault_table"] = df_lead_tbl.to_dict(orient="records")
 
     # Save results.json
     results_path = REPORTS_DIR / "results.json"

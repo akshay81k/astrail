@@ -103,7 +103,7 @@ Engine v2 calculates per-subsystem scores from persistent normalized residuals i
 ### Baseline & Engine Comparison (with 95% Bootstrap Confidence Intervals):
 | Dataset | Method | Top-1 Accuracy (95% CI) | Top-3 Accuracy (95% CI) |
 |:---|:---|:---:|:---:|
-| 8 Real Faults | (a) Chance Baseline | 12.5% [0.0%, 37.5%] | 37.5% [0.0%, 75.0%] |
+| 8 Real Faults | (a) Chance Baseline | 12.5% [0.0%, 37.5%] | 25.0% [0.0%, 62.5%] |
 | 8 Real Faults | (b) Largest-Residual | 62.5% [25.0%, 87.5%] | 75.0% [37.5%, 100.0%] |
 | 8 Real Faults | (c) Earliest-Onset | 50.0% [12.5%, 87.5%] | 75.0% [37.5%, 100.0%] |
 | 8 Real Faults | (d) Engine v2 (Peak+Onset) | 62.5% [25.0%, 87.5%] | 75.0% [37.5%, 100.0%] |

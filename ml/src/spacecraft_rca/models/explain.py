@@ -43,11 +43,16 @@ class ExplainerEngine:
             "per_channel_status": dict(data_quality.get("per_channel_status", {}))
         }
 
+        clean_ttl_status = str(time_to_limit.get("status", "no crossing projected"))
+        # When limit is already violated, force status to "limit already exceeded"
+        if not clean_limit["within_limits"]:
+            clean_ttl_status = "limit already exceeded"
+
         clean_ttl = {
-            "status": str(time_to_limit.get("status", "no crossing projected")),
+            "status": clean_ttl_status,
             "confidence_pct": int(time_to_limit.get("confidence_pct", 80)),
-            "median_rows": round(float(time_to_limit["median_rows"]), 1) if time_to_limit.get("median_rows") is not None else None,
-            "range_80": [round(float(r), 1) for r in time_to_limit["range_80"]] if time_to_limit.get("range_80") is not None else None
+            "median_rows": round(float(time_to_limit["median_rows"]), 1) if (clean_ttl_status == "PROJECTED" and time_to_limit.get("median_rows") is not None) else None,
+            "range_80": [round(float(r), 1) for r in time_to_limit["range_80"]] if (clean_ttl_status == "PROJECTED" and time_to_limit.get("range_80") is not None) else None
         }
 
         return {
@@ -60,10 +65,16 @@ class ExplainerEngine:
             "time_to_limit": clean_ttl
         }
 
-    def generate_explanation(self, evidence: Dict[str, Any]) -> str:
+    def generate_explanation(self, evidence: Dict[str, Any], source_subsystem: Optional[str] = None) -> str:
         """
         Template-based explanation generator reading exclusively from the evidence JSON.
         Guarantees: Every number appearing in the output string is present in evidence JSON.
+        Includes:
+        - Top 2-3 channels with direction and size vs forecast
+        - Onset order
+        - Source subsystem
+        - One plain sentence on runner-up (omitted when NONE)
+        - Time to limit projection or status
         """
         onset = evidence.get("onset_order", [])
         sigmas = evidence.get("per_channel_sigma", {})
@@ -75,38 +86,47 @@ class ExplainerEngine:
         if not onset:
             return "No anomalies detected across telemetry channels."
 
-        primary_sig = onset[0]
-        primary_sigma = sigmas.get(primary_sig, 0.0)
+        # 1. Top 2-3 channels with size vs forecast
+        top_channels = onset[:3]
+        ch_phrases = []
+        for ch in top_channels:
+            s_val = sigmas.get(ch, 0.0)
+            ch_phrases.append(f"{ch} elevated by {s_val} sigma vs forecast")
+        channel_clause = ", ".join(ch_phrases)
 
-        # 1. Primary Signal & Sigma clause
-        sig_clause = f"{primary_sig} exhibits {primary_sigma} sigma deviation"
+        # 2. Onset sequence and source subsystem
+        onset_str = ", ".join(onset[:4])
+        onset_clause = f"Onset sequence: {onset_str}"
+        sub_clause = f"Primary root cause identified as {source_subsystem} subsystem" if source_subsystem else "Anomalous subsystem activity detected"
 
-        # 2. Data Quality clause
+        # 3. Data Quality & Limits
         dq_status = dq.get("status", "VALID")
         valid_ch = dq.get("valid_channels", 23)
         total_ch = dq.get("total_channels", 23)
         dq_clause = f"Data quality is {dq_status} across {valid_ch} of {total_ch} channels"
 
-        # 3. Limit Margin clause
-        margin_pct = lim.get("margin_pct", 100.0)
-        margin_clause = f"operational limit margin is {margin_pct}%"
+        parts = [f"{channel_clause}.", f"{onset_clause}.", f"{sub_clause}.", f"{dq_clause}."]
 
-        # 4. Runner-up clause
+        # 4. Runner-up clause (plain sentence, omitted when NONE)
         ru_sub = ru.get("subsystem", "NONE")
-        ru_conf = ru.get("confidence_score", 0.0)
-        ru_delta = ru.get("delta_score", 0.0)
-        ru_clause = f"runner-up candidate {ru_sub} has {ru_conf}% confidence with {ru_delta}% margin gap"
+        if ru_sub and ru_sub not in ("NONE", "UNKNOWN"):
+            ru_conf = ru.get("confidence_score", 0.0)
+            ru_delta = ru.get("delta_score", 0.0)
+            parts.append(f"Runner-up candidate {ru_sub} has {ru_conf}% confidence with a {ru_delta}% margin gap.")
 
         # 5. Time-to-Limit clause
-        if ttl.get("status") == "PROJECTED" and ttl.get("median_rows") is not None and ttl.get("range_80") is not None:
+        ttl_status = ttl.get("status", "no crossing projected")
+        if ttl_status == "limit already exceeded":
+            parts.append("Operational hard limit is already exceeded.")
+        elif ttl_status == "PROJECTED" and ttl.get("median_rows") is not None and ttl.get("range_80") is not None:
             med_rows = ttl["median_rows"]
             r_min, r_max = ttl["range_80"]
             conf_pct = ttl.get("confidence_pct", 80)
-            ttl_clause = f"projected time-to-limit is {med_rows} rows ({conf_pct}% range: {r_min} to {r_max} rows)"
+            parts.append(f"Projected time-to-limit is {med_rows} rows ({conf_pct}% range: {r_min} to {r_max} rows).")
         else:
-            ttl_clause = "projected time-to-limit indicates no crossing projected"
+            parts.append("Projected time-to-limit indicates no crossing projected.")
 
-        explanation = f"{sig_clause}. {dq_clause} with {margin_clause}. The {ru_clause}. {ttl_clause}."
+        explanation = " ".join(parts)
         return explanation
 
     # Backward compatibility with older callers
