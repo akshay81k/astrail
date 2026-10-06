@@ -13,6 +13,8 @@ router.get('/evaluation/robustness', evalController.getRobustness);
 router.get('/evaluation/classification', evalController.getClassification);
 router.get('/evaluation/lead-time', evalController.getLeadTime);
 router.get('/evaluation/calibration', evalController.getCalibration);
+router.get('/evaluation/results-json', evalController.getResultsJson);
+router.get('/results.json', evalController.getResultsJson);
 router.post('/evaluation/runs', validate(schemas.startEvalRun), evalController.startRun);
 router.get('/evaluation/runs/:runId', evalController.getRun);
 

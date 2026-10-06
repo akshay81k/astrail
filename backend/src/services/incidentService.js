@@ -83,6 +83,26 @@ class IncidentService {
     }
 
     if (!incident) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const cleanId = incidentId.replace(/^inc_/, '');
+        const candidateFiles = [
+          path.resolve(__dirname, `../../../frontend/public/incident_${incidentId}.json`),
+          path.resolve(__dirname, `../../../frontend/public/incident_${cleanId}.json`),
+          path.resolve(__dirname, `../../../ml/reports/incident_${incidentId}.json`),
+          path.resolve(__dirname, `../../../ml/reports/incident_${cleanId}.json`)
+        ];
+        for (const f of candidateFiles) {
+          if (fs.existsSync(f)) {
+            incident = JSON.parse(fs.readFileSync(f, 'utf8'));
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!incident) {
       throw new AppError(404, 'NOT_FOUND', `Incident with ID ${incidentId} not found`);
     }
 

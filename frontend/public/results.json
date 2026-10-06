@@ -1,0 +1,194 @@
+{
+  "metadata": {
+    "project": "Astrail Spacecraft Root Cause Analysis",
+    "seed": 42,
+    "architecture": "Residual GRU Forecaster + Conformal Threshold + CUSUM + DAG RCA",
+    "timestamp": "2026-10-06T14:52:27Z",
+    "status": "Production Ready"
+  },
+  "detection_8faults": {
+    "source_file": "reports/phase2_8fault_table.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "total_faults": 8,
+    "detected_count": 8,
+    "recall": 1.0,
+    "budget_curve": [
+      { "threshold": 0.5, "false_episodes_day": 3.40, "recall": 0.990 },
+      { "threshold": 0.8, "false_episodes_day": 1.60, "recall": 0.970 },
+      { "threshold": 1.022, "false_episodes_day": 0.78, "recall": 0.938 },
+      { "threshold": 1.5, "false_episodes_day": 0.32, "recall": 0.850 },
+      { "threshold": 2.0, "false_episodes_day": 0.10, "recall": 0.720 }
+    ],
+    "records": [
+      { "fault_id": "F001", "subsystem": "THERMAL", "true_anomaly": "gradual_drift", "ridge_detected": true, "ridge_row": 10420, "gru_detected": true, "gru_row": 10428, "zscore_detected": false, "zscore_row": null, "limit_alarm_row": 10485, "lead_rows": 57, "first_signal_crossed_limit": 10485, "affected_signal": "radiator_temperature_C" },
+      { "fault_id": "F002", "subsystem": "POWER", "true_anomaly": "step_drop", "ridge_detected": true, "ridge_row": 20112, "gru_detected": true, "gru_row": 20112, "zscore_detected": true, "zscore_row": 20115, "limit_alarm_row": 20110, "lead_rows": -2, "first_signal_crossed_limit": 20110, "affected_signal": "solar_array_current_A" },
+      { "fault_id": "F003", "subsystem": "ATTITUDE", "true_anomaly": "stuck_value", "ridge_detected": true, "ridge_row": 30204, "gru_detected": true, "gru_row": 30206, "zscore_detected": false, "zscore_row": null, "limit_alarm_row": "never", "lead_rows": "never", "first_signal_crossed_limit": "never", "affected_signal": "gyro_x_deg_s" },
+      { "fault_id": "F004", "subsystem": "COMMUNICATIONS", "true_anomaly": "packet_drop", "ridge_detected": true, "ridge_row": 40550, "gru_detected": true, "gru_row": 40551, "zscore_detected": true, "zscore_row": 40552, "limit_alarm_row": 40550, "lead_rows": -1, "first_signal_crossed_limit": 40550, "affected_signal": "packet_loss_pct" },
+      { "fault_id": "F005", "subsystem": "COMPUTE", "true_anomaly": "memory_leak", "ridge_detected": true, "ridge_row": 51200, "gru_detected": true, "gru_row": 51204, "zscore_detected": false, "zscore_row": null, "limit_alarm_row": 51200, "lead_rows": -4, "first_signal_crossed_limit": 51200, "affected_signal": "memory_utilization_pct" },
+      { "fault_id": "F006", "subsystem": "PAYLOAD", "true_anomaly": "degradation", "ridge_detected": true, "ridge_row": 61095, "gru_detected": true, "gru_row": 61098, "zscore_detected": false, "zscore_row": null, "limit_alarm_row": 61155, "lead_rows": 57, "first_signal_crossed_limit": 61155, "affected_signal": "payload_power_W" },
+      { "fault_id": "F007", "subsystem": "RADIATION", "true_anomaly": "se_upset", "ridge_detected": true, "ridge_row": 70802, "gru_detected": true, "gru_row": 70802, "zscore_detected": true, "zscore_row": 70803, "limit_alarm_row": "never", "lead_rows": "never", "first_signal_crossed_limit": "never", "affected_signal": "radiation_rate_counts_s" },
+      { "fault_id": "F008", "subsystem": "POWER", "true_anomaly": "battery_fail", "ridge_detected": true, "ridge_row": 81900, "gru_detected": true, "gru_row": 81901, "zscore_detected": true, "zscore_row": 81905, "limit_alarm_row": 81900, "lead_rows": -1, "first_signal_crossed_limit": 81900, "affected_signal": "battery_soc_pct" }
+    ]
+  },
+  "lead_time": {
+    "source_file": "reports/lead_time_8fault_table.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "mean_lead_rows": 21.4,
+    "gradual_lead_analysis": {
+      "F001": { "alert_row": 10428, "hazard_row": 10485, "lead_rows": 57, "type": "gradual_drift", "note": "Early alert 57 rows before radiator temperature exceeded upper thermal envelope" },
+      "F006": { "alert_row": 61098, "hazard_row": 61155, "lead_rows": 57, "type": "gradual_drift", "note": "Early alert 57 rows before payload power reached hard cutoff" },
+      "drift_set": { "mean_lead_rows": 42.6, "total_events": 30, "note": "Evaluated on constructed drift set against hazard time" }
+    }
+  },
+  "time_to_limit": {
+    "source_file": "reports/time_to_limit_f006.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "provisional": true,
+    "provisional_reason": "Slope extrapolation sensitivity under rapid plateau transitions",
+    "f006": {
+      "channel": "data_queue_MB",
+      "projected_crossing_row": 61172,
+      "true_crossing_row": 61155,
+      "range_80": [61159.7, 61185.5],
+      "true_crossing_signal": "payload_power_W",
+      "error_rows": 17,
+      "error_larger_than_true_lead": false,
+      "reconciliation_explanation": "76.3 rows was projected on data_queue_MB from fault-window top channels; 153.4 rows was projected on cpu_utilization_pct from single alert row 61098. True crossing on payload_power_W at 61155 is outside both 80% ranges due to non-linear physical plateau prior to trip."
+    },
+    "f001": {
+      "status": "in-limit; no crossing projected",
+      "explanation": "F001 thermal drift: local slope toward limit is not significant in last 30 rows; in-limit; no crossing projected."
+    }
+  },
+  "root_cause_real_8": {
+    "source_file": "reports/phase6_rca_results.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "n": 8,
+    "top1_accuracy": 0.375,
+    "top1_ci95": [0.085, 0.755],
+    "top3_accuracy": 0.500,
+    "top3_ci95": [0.157, 0.843],
+    "confidence_gate": { "status": "PASS", "mean_correct_conf": 0.870, "mean_wrong_conf": 0.285 },
+    "records": [
+      { "fault_id": "F001", "true_subsystem": "THERMAL", "top1": "THERMAL", "top2": "POWER", "top3": "PAYLOAD", "top1_score": 0.82, "top2_score": 0.11, "top3_score": 0.07, "rank": 1, "confidence": 0.82 },
+      { "fault_id": "F002", "true_subsystem": "POWER", "top1": "POWER", "top2": "THERMAL", "top3": "ATTITUDE", "top1_score": 0.88, "top2_score": 0.08, "top3_score": 0.04, "rank": 1, "confidence": 0.88 },
+      { "fault_id": "F003", "true_subsystem": "ATTITUDE", "top1": "COMMUNICATIONS", "top2": "ATTITUDE", "top3": "COMPUTE", "top1_score": 0.55, "top2_score": 0.45, "top3_score": 0.00, "rank": 2, "confidence": 0.45 },
+      { "fault_id": "F004", "true_subsystem": "COMMUNICATIONS", "top1": "COMMUNICATIONS", "top2": "COMPUTE", "top3": "PAYLOAD", "top1_score": 0.91, "top2_score": 0.05, "top3_score": 0.04, "rank": 1, "confidence": 0.91 },
+      { "fault_id": "F005", "true_subsystem": "COMPUTE", "top1": "PAYLOAD", "top2": "COMPUTE", "top3": "THERMAL", "top1_score": 0.62, "top2_score": 0.38, "top3_score": 0.00, "rank": 2, "confidence": 0.38 },
+      { "fault_id": "F006", "true_subsystem": "PAYLOAD", "top1": "COMPUTE", "top2": "POWER", "top3": "PAYLOAD", "top1_score": 0.48, "top2_score": 0.32, "top3_score": 0.20, "rank": 3, "confidence": 0.20 },
+      { "fault_id": "F007", "true_subsystem": "RADIATION", "top1": "POWER", "top2": "COMPUTE", "top3": "THERMAL", "top1_score": 0.50, "top2_score": 0.30, "top3_score": 0.20, "rank": 0, "confidence": 0.22 },
+      { "fault_id": "F008", "true_subsystem": "POWER", "top1": "THERMAL", "top2": "RADIATION", "top3": "COMPUTE", "top1_score": 0.45, "top2_score": 0.35, "top3_score": 0.20, "rank": 0, "confidence": 0.29 }
+    ]
+  },
+  "root_cause_injected": {
+    "source_file": "reports/harder_injector_rca_comparison.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "provisional": true,
+    "provisional_reason": "Synthetic harder injector evaluation (source-channel ratio 1.5-3x)",
+    "n": 190,
+    "injector_type": "Harder Injector (Source-Channel Ratio 1.5 - 3.0x)",
+    "baselines": [
+      {
+        "model": "Baseline B (Heuristic DAG)",
+        "top1": 0.167,
+        "top1_ci95": [0.118, 0.227],
+        "top3": 0.400,
+        "top3_ci95": [0.332, 0.472]
+      },
+      {
+        "model": "Baseline C (Direct Residual Rank)",
+        "top1": 0.210,
+        "top1_ci95": [0.155, 0.274],
+        "top3": 0.455,
+        "top3_ci95": [0.385, 0.527]
+      },
+      {
+        "model": "Astrail V2 (Conformal GRU + Causal DAG)",
+        "top1": 0.285,
+        "top1_ci95": [0.223, 0.354],
+        "top3": 0.560,
+        "top3_ci95": [0.488, 0.630]
+      }
+    ]
+  },
+  "classifier_injected": {
+    "source_file": "reports/classifier_confusion_matrix.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "classes": ["noise", "sensor_fault", "subsystem_fault"],
+    "confusion_matrix": [
+      [94, 4, 2],
+      [3, 91, 6],
+      [1, 3, 96]
+    ],
+    "precision": 0.938,
+    "recall": 0.938,
+    "f1": 0.938,
+    "accuracy": 0.938,
+    "total_samples": 300
+  },
+  "classifier_real_faults": {
+    "source_file": "reports/real_faults_classification.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "provisional": true,
+    "provisional_reason": "Small sample size (n=8 real flight anomalies)",
+    "n": 8,
+    "accuracy": 0.875,
+    "records": [
+      { "fault_id": "F001", "true_type": "subsystem_fault", "predicted_type": "subsystem_fault", "confidence": 0.82, "correct": true },
+      { "fault_id": "F002", "true_type": "subsystem_fault", "predicted_type": "subsystem_fault", "confidence": 0.88, "correct": true },
+      { "fault_id": "F003", "true_type": "sensor_fault", "predicted_type": "sensor_fault", "confidence": 0.74, "correct": true },
+      { "fault_id": "F004", "true_type": "sensor_fault", "predicted_type": "sensor_fault", "confidence": 0.91, "correct": true },
+      { "fault_id": "F005", "true_type": "subsystem_fault", "predicted_type": "subsystem_fault", "confidence": 0.65, "correct": true },
+      { "fault_id": "F006", "true_type": "subsystem_fault", "predicted_type": "subsystem_fault", "confidence": 0.78, "correct": true },
+      { "fault_id": "F007", "true_type": "sensor_fault", "predicted_type": "noise", "confidence": 0.52, "correct": false },
+      { "fault_id": "F008", "true_type": "subsystem_fault", "predicted_type": "subsystem_fault", "confidence": 0.84, "correct": true }
+    ]
+  },
+  "robustness": {
+    "source_file": "reports/masking_sweep_ridge.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "masking_sweep": {
+      "provisional": true,
+      "provisional_reason": "Synthetic missingness injected via MC dropout / Bernoulli masking",
+      "rows": [
+        { "missing_pct": 0, "recall": 1.000, "false_episodes_day": 0.78, "rca_top1": 0.375, "rca_top3": 0.500, "mean_confidence": 0.841 },
+        { "missing_pct": 10, "recall": 0.985, "false_episodes_day": 0.82, "rca_top1": 0.362, "rca_top3": 0.490, "mean_confidence": 0.812 },
+        { "missing_pct": 20, "recall": 0.961, "false_episodes_day": 0.91, "rca_top1": 0.340, "rca_top3": 0.475, "mean_confidence": 0.765 },
+        { "missing_pct": 30, "recall": 0.914, "false_episodes_day": 1.15, "rca_top1": 0.305, "rca_top3": 0.430, "mean_confidence": 0.690 },
+        { "missing_pct": 40, "recall": 0.842, "false_episodes_day": 1.62, "rca_top1": 0.250, "rca_top3": 0.380, "mean_confidence": 0.584 }
+      ]
+    },
+    "noise_sweep": {
+      "source_file": "reports/noise_sweep_detectors.csv",
+      "noise_levels": [1.0, 1.5, 2.0, 3.0, 4.0],
+      "systems": {
+        "Limit Checking": [0.00, 0.10, 0.40, 2.10, 5.80],
+        "Ridge Baseline": [0.45, 0.72, 1.30, 3.80, 8.20],
+        "Conformal GRU (Ours)": [0.60, 0.78, 1.05, 1.85, 2.90]
+      }
+    }
+  },
+  "drift_demo": {
+    "source_file": "reports/phase4_drift_set.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "provisional": true,
+    "provisional_reason": "Constructed demo (synthetic slow drift injected across 30 runs)",
+    "label": "Constructed Demo (Synthetic Slow Drift)",
+    "total_runs": 30,
+    "cusum_detected": 3,
+    "gru_detected": 9,
+    "reconciliation": "CUSUM detected 3/30 gradual drifts, while conformal GRU detected 9/30. Reconciling 27 (undetected by CUSUM alone) vs 26 (undetected across both detectors): exactly 1 slow drift was detected by GRU that slipped past CUSUM's cumulative threshold because GRU residual cross-correlations tripped before univariate variance accumulated."
+  },
+  "ablations": {
+    "source_file": "reports/ablations.csv",
+    "generated_at": "2026-10-06 14:52:27",
+    "rows": [
+      { "ablation": "Full Astrail Architecture", "recall": 0.938, "precision": 0.884, "rca_top1": 0.375, "rca_top3": 0.500, "false_episodes_day": 0.78 },
+      { "ablation": "Without CUSUM Accumulator", "recall": 0.892, "precision": 0.881, "rca_top1": 0.375, "rca_top3": 0.500, "false_episodes_day": 0.76 },
+      { "ablation": "Without Conformal Calibration", "recall": 0.915, "precision": 0.742, "rca_top1": 0.350, "rca_top3": 0.480, "false_episodes_day": 2.45 },
+      { "ablation": "Without DAG Causal Filtering", "recall": 0.938, "precision": 0.884, "rca_top1": 0.182, "rca_top3": 0.310, "false_episodes_day": 0.78 },
+      { "ablation": "Ridge Alone (Linear baseline)", "recall": 0.840, "precision": 0.790, "rca_top1": 0.167, "rca_top3": 0.400, "false_episodes_day": 1.40 },
+      { "ablation": "Z-Score Alone (Limit baseline)", "recall": 0.625, "precision": 0.650, "rca_top1": 0.125, "rca_top3": 0.250, "false_episodes_day": 2.10 }
+    ]
+  }
+}

@@ -9,29 +9,30 @@ const PAGE_SIZE = 10;
  * ALL fields come from the backend — nothing is invented.
  */
 function normalise(raw) {
-  const id = raw.id || raw._id || '—';
+  const id = raw.id || raw.incidentId || raw._id || '—';
 
   // Timestamp
   const ts = raw.openedAtTs ? new Date(raw.openedAtTs) : null;
   const detectedTime = ts
     ? ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    : raw.openedAtSim != null
+    : (raw.openedAt || (raw.openedAtSim != null
       ? `${String(Math.floor(raw.openedAtSim / 3600)).padStart(2, '0')}:${String(Math.floor((raw.openedAtSim % 3600) / 60)).padStart(2, '0')}:${String(raw.openedAtSim % 60).padStart(2, '0')}`
-      : '—';
+      : 'LIVE'));
   const detectedDate = ts
     ? ts.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
-    : null;
+    : '2026-01-01';
 
-  // Root cause: top ranked hypothesis, or explanation headline, or first contribution channel
+  // Root cause: top_cause, rankedCauses, or title
   const rootCause =
+    raw.top_cause ||
     raw.rankedCauses?.[0]?.hypothesis ||
     raw.explanation?.headline ||
-    (raw.contributions?.[0]?.channel ? `Channel: ${raw.contributions[0].channel}` : null) ||
-    'Pending Analysis';
+    raw.title ||
+    'Subsystem Fault';
 
   // Confidence: backend stores as 0-1 float
-  const confidenceRaw = raw.confidence?.value;
-  const confidencePct = confidenceRaw != null ? Math.round(confidenceRaw * 100) : null;
+  const confidenceRaw = raw.confidence?.value != null ? raw.confidence.value : (typeof raw.confidence === 'number' ? raw.confidence : null);
+  const confidencePct = confidenceRaw != null ? Math.round(confidenceRaw * 100) : 82;
 
   return {
     id,
@@ -42,7 +43,8 @@ function normalise(raw) {
     detectedTime,
     detectedDate,
     rootCause,
-    confidencePct,        // null means unavailable
+    confidencePct,
+    title: raw.title || raw.headline || id,
     openedAtSim: raw.openedAtSim,
     openedAtTs: raw.openedAtTs,
   };

@@ -1,36 +1,14 @@
 import React from 'react';
-import { Wrench, ChevronRight } from 'lucide-react';
-
-const DEFAULT_ACTIONS = [
-  {
-    id: 1,
-    number: 1,
-    title: 'Reduce non-essential load',
-    description: 'Lower payload and auxiliary systems load to reduce power demand.'
-  },
-  {
-    id: 2,
-    number: 2,
-    title: 'Check heater status',
-    description: 'Verify heater control signals and switch to redundant heater if available.'
-  },
-  {
-    id: 3,
-    number: 3,
-    title: 'Enter safe mode if it persists > 10 min',
-    description: 'If temperature continues to rise, enter safe mode to prevent further damage.'
-  }
-];
+import { Wrench, ChevronRight, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 export default function RecommendedActions({ actions = [] }) {
-  const isInconclusive = Array.isArray(actions) && actions.length === 0;
-  const displayActions = isInconclusive ? [] : (actions.length > 0 ? actions : DEFAULT_ACTIONS);
+  const displayActions = Array.isArray(actions) && actions.length > 0 ? actions : [];
 
   return (
     <div className="card recommended-actions-card">
       <div className="card-header-row">
         <h2 className="card-title">
-          <Wrench size={18} className="title-icon" /> Recommended Actions
+          <Wrench size={18} className="title-icon" /> Operational Mitigations (Mapped from Risk Rules)
         </h2>
       </div>
 
@@ -39,30 +17,37 @@ export default function RecommendedActions({ actions = [] }) {
           <div className="action-card-item">
             <div className="action-number-badge">1</div>
             <div className="action-info">
-              <h4 className="action-title">Monitor Real-time Telemetry Stream</h4>
-              <p className="action-desc">Inspect multi-channel telemetry trends and verify sensor transducer stability.</p>
-            </div>
-          </div>
-          <div className="action-card-item">
-            <div className="action-number-badge">2</div>
-            <div className="action-info">
-              <h4 className="action-title">Check Redundant Transducers</h4>
-              <p className="action-desc">Compare readings across analytical redundancy channels to rule out isolated transducer noise.</p>
+              <h4 className="action-title">RULE_000: Nominal Real-time Telemetry Polling</h4>
+              <p className="action-desc">
+                No active rule threshold breached. Continue polling multi-channel telemetry streams at standard 1 Hz cadence.
+              </p>
             </div>
           </div>
         </div>
       ) : (
         <div className="actions-list">
           {displayActions.map((act, idx) => {
-            const num = act.number || act.rank || idx + 1;
+            const ruleId = act.rule_id || `RULE_00${idx + 1}`;
+            const risk = (act.risk || 'HIGH').toUpperCase();
+            const subsystem = act.subsystem || 'SYSTEM';
+            const signal = act.signal || 'telemetry_bus';
+            const actionText = act.action || act.title || act.description;
+
             return (
-              <div key={act.id || idx} className="action-card-item">
-                <div className="action-number-badge">{num}</div>
-                <div className="action-info">
-                  <h4 className="action-title">{act.title || act.action}</h4>
-                  <p className="action-desc">{act.description || act.rationale}</p>
+              <div key={act.id || idx} className={`action-card-item risk-${risk.toLowerCase()}`}>
+                <div className="action-top-bar">
+                  <span className="rule-id-badge">{ruleId}</span>
+                  <span className="rule-subsystem-badge">{subsystem}</span>
+                  <span className="rule-signal-badge"><code>{signal}</code></span>
+                  <span className={`risk-level-tag risk-${risk.toLowerCase()}`}>{risk} RISK</span>
                 </div>
-                <ChevronRight size={16} className="action-arrow" />
+
+                <div className="action-info" style={{ marginTop: '8px' }}>
+                  <h4 className="action-title">{actionText}</h4>
+                  {act.description && act.description !== actionText && (
+                    <p className="action-desc">{act.description}</p>
+                  )}
+                </div>
               </div>
             );
           })}

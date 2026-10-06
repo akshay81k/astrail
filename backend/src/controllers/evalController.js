@@ -32,6 +32,10 @@ function getCalibration(req, res) {
   res.json(evalService.getCalibrationResults());
 }
 
+function getResultsJson(req, res) {
+  res.json(evalService.getResultsJson());
+}
+
 async function startRun(req, res, next) {
   try {
     const { suite, params } = req.body;
@@ -60,6 +64,7 @@ module.exports = {
   getClassification,
   getLeadTime,
   getCalibration,
+  getResultsJson,
   startRun,
   getRun
 };

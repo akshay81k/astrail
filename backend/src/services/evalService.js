@@ -39,6 +39,23 @@ class EvalService {
     return evalData.calibrationEval;
   }
 
+  getResultsJson() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const candidates = [
+        path.resolve(__dirname, '../../../frontend/public/results.json'),
+        path.resolve(__dirname, '../../../ml/reports/results.json')
+      ];
+      for (const c of candidates) {
+        if (fs.existsSync(c)) {
+          return JSON.parse(fs.readFileSync(c, 'utf8'));
+        }
+      }
+    } catch (_) {}
+    return evalData.evaluationSummary;
+  }
+
   async startRun(suite, params) {
     const runId = idGen.evalRun();
     const runDoc = {

@@ -1,0 +1,110 @@
+{
+  "id": "inc_F004",
+  "incidentId": "inc_F004",
+  "fault_id": "F004",
+  "event_type": "sensor_fault",
+  "severity": "MEDIUM",
+  "openedAt": "02:14:30",
+  "openedAtSim": 8070,
+  "status": "active",
+  "title": "F004: Communications Transceiver Packet Drop",
+  "headline": "High packet loss detected on primary RF downlink proxy",
+  "description": "Communication channel telemetry packet drop with persistent receiver degradation.",
+  "anomaly_score_max": 4.18,
+  "threshold": 1.022,
+  "top_cause": "COMMUNICATIONS",
+  "confidence": 0.91,
+  "flagged_sensors": ["packet_loss_pct", "comm_tx_dbm"],
+  "runner_up": {
+    "candidate": "COMPUTE",
+    "delta_score": 0.22,
+    "confidence": 0.69
+  },
+  "time_to_limit": {
+    "status": "limit already exceeded",
+    "channel": "comm_tx_dbm",
+    "crossing_row": 40550,
+    "range_80": "not available",
+    "explanation": "Operational hard limit is already exceeded on comm_tx_dbm at row 40550."
+  },
+  "data_quality": {
+    "nominal_fraction": 0.913,
+    "per_channel": {
+      "power_bus_voltage_V": "OK",
+      "power_bus_current_A": "OK",
+      "solar_array_current_A": "OK",
+      "battery_soc_pct": "OK",
+      "battery_temperature_C": "OK",
+      "eps_temperature_C": "OK",
+      "payload_temperature_C": "OK",
+      "radiator_temperature_C": "OK",
+      "imu_accel_x_mps2": "OK",
+      "imu_accel_y_mps2": "OK",
+      "imu_accel_z_mps2": "OK",
+      "gyro_x_deg_s": "OK",
+      "gyro_y_deg_s": "OK",
+      "gyro_z_deg_s": "OK",
+      "reaction_wheel_speed_rpm": "OK",
+      "comm_rx_dbm": "OK",
+      "comm_tx_dbm": "DELAYED",
+      "packet_loss_pct": "NOISY",
+      "cpu_utilization_pct": "OK",
+      "memory_utilization_pct": "OK",
+      "radiation_rate_counts_s": "OK",
+      "payload_power_W": "OK",
+      "data_queue_MB": "OK"
+    }
+  },
+  "root_cause_analysis": {
+    "primary_subsystem": "COMMUNICATIONS",
+    "confidence": 0.91,
+    "root_cause_candidates": [
+      { "subsystem": "COMMUNICATIONS", "score": 0.91, "confidence": 0.91, "primary_signal": "packet_loss_pct" },
+      { "subsystem": "COMPUTE", "score": 0.05, "confidence": 0.05, "primary_signal": "cpu_utilization_pct" },
+      { "subsystem": "PAYLOAD", "score": 0.04, "confidence": 0.04, "primary_signal": "data_queue_MB" }
+    ]
+  },
+  "rankedCauses": [
+    { "rank": 1, "subsystem": "COMMUNICATIONS", "score": 0.91, "probability": 0.91, "confidence": 0.91, "nodeId": "comm" },
+    { "rank": 2, "subsystem": "COMPUTE", "score": 0.05, "probability": 0.05, "confidence": 0.05, "nodeId": "compute" },
+    { "rank": 3, "subsystem": "PAYLOAD", "score": 0.04, "probability": 0.04, "confidence": 0.04, "nodeId": "payload" }
+  ],
+  "recommendations": [
+    {
+      "id": 1,
+      "rule_id": "RULE_006",
+      "subsystem": "COMMUNICATIONS",
+      "signal": "packet_loss_pct",
+      "risk": "MEDIUM",
+      "title": "Switch Communication Path",
+      "action": "Switch/verify communication path and prioritize critical packets",
+      "description": "Triggered by packet_loss_pct > 5%. Verify RF link margin and prioritize health telemetry packets."
+    }
+  ],
+  "evidence": [
+    "Packet loss surged from 0.0% to 14.8% at row 40550",
+    "RF transmit power proxy crossed operational limit threshold",
+    "Analytical redundancy confirms downlink transceiver degradation",
+    "No correlated power bus drop ruling out EPS power starvation"
+  ],
+  "explanation": {
+    "headline": "Isolated Transceiver Transmit Packet Drop",
+    "summary": "Packet loss jumped abruptly without voltage sag, pointing directly to Communications subsystem RF chain failure.",
+    "root_cause": "COMMUNICATIONS",
+    "confidence": 0.91
+  },
+  "graph": {
+    "nodes": [
+      { "id": "comm", "label": "COMMUNICATIONS", "subsystem": "COMMUNICATIONS", "state": "anomaly", "score": 0.91 },
+      { "id": "compute", "label": "COMPUTE", "subsystem": "COMPUTE", "state": "nominal", "score": 0.05 },
+      { "id": "payload", "label": "PAYLOAD", "subsystem": "PAYLOAD", "state": "nominal", "score": 0.04 }
+    ],
+    "edges": [
+      { "from": "compute", "to": "comm", "strength": 0.3 },
+      { "from": "payload", "to": "comm", "strength": 0.4 }
+    ]
+  },
+  "propagation": [
+    { "id": "ev-1", "time": "02:14:30", "nodeId": "comm", "description": "Packet drop detected on RF downlink", "severity": "MEDIUM" }
+  ]
+}

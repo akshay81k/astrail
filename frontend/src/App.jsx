@@ -18,6 +18,7 @@ import FaultInjection from './pages/FaultInjection';
 import DetectionComparison from './pages/DetectionComparison';
 import Evaluation from './pages/Evaluation';
 import IncidentHistory from './pages/IncidentHistory';
+import DevDebugDrawer from './components/DevDebugDrawer';
 
 function MainDashboard() {
   return (
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/reports" element={<Evaluation />} />
           <Route path="/evaluation" element={<Evaluation />} />
         </Routes>
+        <DevDebugDrawer />
       </BrowserRouter>
     </TelemetryProvider>
   );

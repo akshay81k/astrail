@@ -7,43 +7,67 @@ import {
   ChevronRight,
   Activity,
 } from "lucide-react";
-
-const subsystems = [
-  {
-    id: "power",
-    name: "POWER",
-    percentage: 68,
-    status: "AMBER",
-    icon: Zap,
-    statusClass: "amber",
-  },
-  {
-    id: "thermal",
-    name: "THERMAL",
-    percentage: 92,
-    status: "RED",
-    icon: Thermometer,
-    statusClass: "red",
-  },
-  {
-    id: "attitude",
-    name: "ATTITUDE",
-    percentage: 88,
-    status: "GREEN",
-    icon: Compass,
-    statusClass: "green",
-  },
-  {
-    id: "comms",
-    name: "COMMS",
-    percentage: 96,
-    status: "GREEN",
-    icon: Wifi,
-    statusClass: "green",
-  },
-];
+import { useTelemetry } from "../context/TelemetryContext";
 
 export default function SubsystemHealth() {
+  const { incidentsList, telemetryData, subsystemHealthData } = useTelemetry();
+
+  // Determine active subsystem anomalies from real live data & active incidents
+  const latestPoint = telemetryData.length > 0 ? telemetryData[telemetryData.length - 1] : null;
+  const activeIncidents = incidentsList || [];
+
+  const hasThermalIncident = activeIncidents.some(
+    (i) => (i.top_cause || "").toUpperCase() === "THERMAL" || (i.flagged_sensors || []).some(s => s.includes("temp"))
+  ) || (latestPoint && latestPoint.batteryTemp > 35.0);
+
+  const hasPowerIncident = activeIncidents.some(
+    (i) => (i.top_cause || "").toUpperCase() === "POWER" || (i.flagged_sensors || []).some(s => s.includes("power") || s.includes("bus") || s.includes("solar"))
+  );
+
+  const hasAttitudeIncident = activeIncidents.some(
+    (i) => (i.top_cause || "").toUpperCase() === "ATTITUDE" || (i.flagged_sensors || []).some(s => s.includes("gyro") || s.includes("wheel") || s.includes("imu"))
+  );
+
+  const hasCommsIncident = activeIncidents.some(
+    (i) => (i.top_cause || "").toUpperCase() === "COMMUNICATIONS" || (i.top_cause || "").toUpperCase() === "COMMS" || (i.flagged_sensors || []).some(s => s.includes("comm") || s.includes("packet"))
+  );
+
+  // Dynamic real subsystems based on telemetry state
+  const subsystems = [
+    {
+      id: "power",
+      name: "POWER",
+      percentage: hasPowerIncident ? 68 : 99,
+      status: hasPowerIncident ? "AMBER" : "GREEN",
+      icon: Zap,
+      statusClass: hasPowerIncident ? "amber" : "green",
+    },
+    {
+      id: "thermal",
+      name: "THERMAL",
+      percentage: hasThermalIncident ? 74 : 98,
+      status: hasThermalIncident ? "RED" : "GREEN",
+      icon: Thermometer,
+      statusClass: hasThermalIncident ? "red" : "green",
+    },
+    {
+      id: "attitude",
+      name: "ATTITUDE",
+      percentage: hasAttitudeIncident ? 81 : 100,
+      status: hasAttitudeIncident ? "AMBER" : "GREEN",
+      icon: Compass,
+      statusClass: hasAttitudeIncident ? "amber" : "green",
+    },
+    {
+      id: "comms",
+      name: "COMMS",
+      percentage: hasCommsIncident ? 78 : 99,
+      status: hasCommsIncident ? "AMBER" : "GREEN",
+      icon: Wifi,
+      statusClass: hasCommsIncident ? "amber" : "green",
+    },
+  ];
+
   return (
     <section className="subsystem-section">
       <div className="section-title-row">

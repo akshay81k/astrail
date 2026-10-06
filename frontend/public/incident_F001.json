@@ -1,0 +1,120 @@
+{
+  "id": "inc_F001",
+  "incidentId": "inc_F001",
+  "fault_id": "F001",
+  "event_type": "subsystem_fault",
+  "severity": "HIGH",
+  "openedAt": "02:07:08",
+  "openedAtSim": 7628,
+  "status": "active",
+  "title": "F001: Radiator Thermal Degradation (Gradual Drift)",
+  "headline": "Thermal subsystem degradation causing radiator temperature rise",
+  "description": "Gradual thermal rise detected across spacecraft external radiator surface.",
+  "anomaly_score_max": 3.42,
+  "threshold": 1.022,
+  "top_cause": "THERMAL",
+  "confidence": 0.82,
+  "flagged_sensors": ["radiator_temperature_C", "eps_temperature_C"],
+  "runner_up": {
+    "candidate": "POWER",
+    "delta_score": 0.18,
+    "confidence": 0.64
+  },
+  "time_to_limit": {
+    "status": "in-limit; no crossing projected",
+    "channel": "radiator_temperature_C",
+    "projected_crossing_row": null,
+    "range_80": "not available",
+    "explanation": "F001 thermal drift: local slope toward limit is not significant in last 30 rows; in-limit; no crossing projected."
+  },
+  "data_quality": {
+    "nominal_fraction": 0.956,
+    "per_channel": {
+      "power_bus_voltage_V": "OK",
+      "power_bus_current_A": "OK",
+      "solar_array_current_A": "OK",
+      "battery_soc_pct": "OK",
+      "battery_temperature_C": "OK",
+      "eps_temperature_C": "OK",
+      "payload_temperature_C": "OK",
+      "radiator_temperature_C": "NOISY",
+      "imu_accel_x_mps2": "OK",
+      "imu_accel_y_mps2": "OK",
+      "imu_accel_z_mps2": "OK",
+      "gyro_x_deg_s": "OK",
+      "gyro_y_deg_s": "OK",
+      "gyro_z_deg_s": "OK",
+      "reaction_wheel_speed_rpm": "OK",
+      "comm_rx_dbm": "OK",
+      "comm_tx_dbm": "OK",
+      "packet_loss_pct": "OK",
+      "cpu_utilization_pct": "OK",
+      "memory_utilization_pct": "OK",
+      "radiation_rate_counts_s": "OK",
+      "payload_power_W": "OK",
+      "data_queue_MB": "OK"
+    }
+  },
+  "root_cause_analysis": {
+    "primary_subsystem": "THERMAL",
+    "confidence": 0.82,
+    "root_cause_candidates": [
+      { "subsystem": "THERMAL", "score": 0.82, "confidence": 0.82, "primary_signal": "radiator_temperature_C" },
+      { "subsystem": "POWER", "score": 0.11, "confidence": 0.11, "primary_signal": "battery_temperature_C" },
+      { "subsystem": "PAYLOAD", "score": 0.07, "confidence": 0.07, "primary_signal": "payload_temperature_C" }
+    ]
+  },
+  "rankedCauses": [
+    { "rank": 1, "subsystem": "THERMAL", "score": 0.82, "probability": 0.82, "confidence": 0.82, "nodeId": "thermal" },
+    { "rank": 2, "subsystem": "POWER", "score": 0.11, "probability": 0.11, "confidence": 0.11, "nodeId": "power" },
+    { "rank": 3, "subsystem": "PAYLOAD", "score": 0.07, "probability": 0.07, "confidence": 0.07, "nodeId": "payload" }
+  ],
+  "recommendations": [
+    {
+      "id": 1,
+      "rule_id": "RULE_004",
+      "subsystem": "THERMAL",
+      "signal": "battery_temperature_C",
+      "risk": "HIGH",
+      "title": "Reduce Thermal Stress",
+      "action": "Reduce charge/discharge stress; inspect thermal path",
+      "description": "Triggered by elevated temperature on radiator loop affecting EPS heat sink."
+    },
+    {
+      "id": 2,
+      "rule_id": "RULE_003",
+      "subsystem": "THERMAL",
+      "signal": "eps_temperature_C",
+      "risk": "HIGH",
+      "title": "Inspect EPS Regulation",
+      "action": "Reduce load and inspect thermal control",
+      "description": "Triggered by thermal dissipation margin."
+    }
+  ],
+  "evidence": [
+    "Conformal GRU flagged radiator temperature 57 rows prior to hard threshold",
+    "Radiator loop thermal flux failed nominal steady-state bounds",
+    "Heat rejection efficiency degraded by approximately 18%",
+    "Cross-sensor DAG isolated Thermal subsystem as root cause source"
+  ],
+  "explanation": {
+    "headline": "Radiator Surface Thermal Degradation",
+    "summary": "Slow thermal drift observed on radiator panel with 57 rows lead time before upper operational envelope violation.",
+    "root_cause": "THERMAL",
+    "confidence": 0.82
+  },
+  "graph": {
+    "nodes": [
+      { "id": "thermal", "label": "THERMAL", "subsystem": "THERMAL", "state": "anomaly", "score": 0.82 },
+      { "id": "power", "label": "POWER", "subsystem": "POWER", "state": "nominal", "score": 0.11 },
+      { "id": "payload", "label": "PAYLOAD", "subsystem": "PAYLOAD", "state": "nominal", "score": 0.07 }
+    ],
+    "edges": [
+      { "from": "thermal", "to": "power", "strength": 0.5 },
+      { "from": "thermal", "to": "payload", "strength": 0.3 }
+    ]
+  },
+  "propagation": [
+    { "id": "ev-1", "time": "02:07:08", "nodeId": "thermal", "description": "Radiator temperature started gradual drift (+0.08 C/row)", "severity": "HIGH" }
+  ]
+}

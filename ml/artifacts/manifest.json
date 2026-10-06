@@ -1,5 +1,5 @@
 {
-    "splits.json": "0171594aea9489fcc2eae0ce44e084ae2ea52d11af9ff40920771f8fa775e69c",
-    "gru_state_dict.safetensors": "9b13dbe56d560042cca150976408ea545f769addd8d086f9b216e9ea5c898087",
+    "splits.json": "4d27220392b4654e99103b51e6f35f18838369498b220aaf541f49a7627b38e2",
+    "gru_state_dict.safetensors": "61471cc606fcbc00a5772a1ef11ac6bead69fac998094b18d656ff0b9a61c17c",
     "gru_config.json": "c9200b18853ccd0a6accc44054c0fa76dd64057b55a540ae5c816e93687e3e78"
 }

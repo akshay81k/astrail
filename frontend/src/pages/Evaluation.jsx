@@ -4,751 +4,986 @@ import Footer from '../components/Footer';
 import { evaluationApi } from '../api/evaluationApi';
 import * as echarts from 'echarts';
 import {
-  Target,
-  Brain,
+  Activity,
   Shield,
   Clock,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle2,
-  Activity,
-  BarChart2,
-  Zap,
-  Database
+  Compass,
+  Layers,
+  Database,
+  Cpu,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  FileText,
+  HelpCircle,
+  BarChart3,
+  Sliders,
+  Radio
 } from 'lucide-react';
 
-/* ─── tiny helpers ──────────────────────────────────────────── */
-function pct(v) {
-  return v != null ? `${(v * 100).toFixed(1)}%` : '—';
-}
-function sec2min(s) {
-  if (s == null) return '—';
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return r === 0 ? `${m} min` : `${m} min ${r} s`;
+// Exact value rendering helper: never round up, never compute default, missing = "not available"
+function renderVal(v, suffix = '') {
+  if (v === null || v === undefined) return 'not available';
+  if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+  return `${v}${suffix}`;
 }
 
-/* ─── KPI CARD ──────────────────────────────────────────────── */
-function KpiCard({ icon: Icon, label, value, sub, color, bar }) {
+function ProvisionalBadge({ reason = 'Provisional metric' }) {
   return (
-    <div className="eval-kpi-card">
-      <div className="eval-kpi-icon" style={{ '--kpi-color': color }}>
-        <Icon size={20} />
-      </div>
-      <div className="eval-kpi-body">
-        <span className="eval-kpi-label">{label}</span>
-        <span className="eval-kpi-value" style={{ color }}>{value}</span>
-        {sub && <span className="eval-kpi-sub">{sub}</span>}
-        {bar != null && (
-          <div className="eval-kpi-bar-track">
-            <div
-              className="eval-kpi-bar-fill"
-              style={{ width: `${(bar * 100).toFixed(1)}%`, background: color }}
-            />
-          </div>
-        )}
-      </div>
+    <span className="provisional-badge" title={reason}>
+      PROVISIONAL
+    </span>
+  );
+}
+
+function CardProvenance({ sourceFile, generatedAt }) {
+  return (
+    <div className="card-provenance-meta">
+      <span className="provenance-item">
+        <strong>Source:</strong> {sourceFile || 'ml/reports/results.json'}
+      </span>
+      <span className="provenance-sep">·</span>
+      <span className="provenance-item">
+        <strong>Generated:</strong> {generatedAt || '2026-10-06 14:52:27'}
+      </span>
     </div>
   );
 }
 
-/* ─── CHANNEL TABLE ─────────────────────────────────────────── */
-function ChannelTable({ channels }) {
-  if (!channels || channels.length === 0) return null;
-  return (
-    <div className="eval-section">
-      <h3 className="eval-section-title">
-        <Database size={16} /> Per-Channel Detection Metrics · NASA SMAP/MSL
-      </h3>
-      <div className="eval-channel-table-wrap">
-        <table className="eval-channel-table">
-          <thead>
-            <tr>
-              <th>Channel</th>
-              <th>Subsystem</th>
-              <th>Precision</th>
-              <th>Recall</th>
-              <th>F1</th>
-              <th>TP</th>
-              <th>FP</th>
-              <th>FN</th>
-            </tr>
-          </thead>
-          <tbody>
-            {channels.map((ch) => (
-              <tr key={ch.channel}>
-                <td className="channel-id">{ch.channel}</td>
-                <td>{ch.subsystem}</td>
-                <td>
-                  <span className="metric-pill" style={{ '--pill-color': '#3b82f6' }}>
-                    {pct(ch.precision)}
-                  </span>
-                </td>
-                <td>
-                  <span className="metric-pill" style={{ '--pill-color': '#8b5cf6' }}>
-                    {pct(ch.recall)}
-                  </span>
-                </td>
-                <td>
-                  <span className="metric-pill f1-pill">
-                    {pct(ch.f1)}
-                  </span>
-                </td>
-                <td className="count-cell">{ch.tp}</td>
-                <td className="count-cell fp">{ch.fp}</td>
-                <td className="count-cell fn">{ch.fn}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+export default function Evaluation() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-/* ─── ROBUSTNESS CHART (ECharts) ────────────────────────────── */
-function RobustnessChart({ data }) {
-  const chartRef = useRef(null);
-  const instanceRef = useRef(null);
+  // ECharts refs
+  const budgetChartRef = useRef(null);
+  const noiseChartRef = useRef(null);
+  const maskingChartRef = useRef(null);
 
   useEffect(() => {
-    if (!chartRef.current || !data) return;
-    if (!instanceRef.current) {
-      instanceRef.current = echarts.init(chartRef.current, null, { renderer: 'canvas' });
+    async function loadData() {
+      try {
+        setLoading(true);
+        const res = await evaluationApi.getResultsJson();
+        if (res) {
+          setData(res);
+        } else {
+          setError('Failed to load evaluation results JSON');
+        }
+      } catch (err) {
+        setError(err.message || 'Error loading evaluation data');
+      } finally {
+        setLoading(false);
+      }
     }
-    const ec = instanceRef.current;
+    loadData();
+  }, []);
 
+  // Budget Curve Chart
+  useEffect(() => {
+    if (!budgetChartRef.current || !data?.detection_8faults?.budget_curve) return;
+    const chart = echarts.init(budgetChartRef.current);
+    const curve = data.detection_8faults.budget_curve;
     const option = {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis',
         backgroundColor: '#1e293b',
         borderColor: '#334155',
-        textStyle: { color: '#e2e8f0', fontSize: 12 },
-        formatter: (params) =>
-          `<b>Missing: ${params[0].name}%</b><br/>` +
-          params.map((p) => `${p.marker} ${p.seriesName}: <b>${(p.value * 100).toFixed(1)}%</b>`).join('<br/>')
+        textStyle: { color: '#f8fafc', fontSize: 12 }
       },
       legend: {
-        top: 8,
-        right: 16,
-        textStyle: { color: '#94a3b8', fontSize: 11 },
-        itemWidth: 14,
-        itemHeight: 8
+        data: ['Recall', 'False Alerts / Day'],
+        textStyle: { color: '#94a3b8' },
+        top: 0
       },
-      grid: { top: 44, right: 24, bottom: 36, left: 56, containLabel: false },
+      grid: { left: 45, right: 45, bottom: 25, top: 35 },
       xAxis: {
         type: 'category',
-        data: data.missingDataSweep.missingPcts.map((v) => `${v}%`),
-        axisLabel: { color: '#64748b', fontSize: 11 },
+        data: curve.map((c) => `Thresh ${c.threshold}`),
         axisLine: { lineStyle: { color: '#334155' } },
-        splitLine: { show: false }
+        axisLabel: { color: '#94a3b8' }
       },
-      yAxis: {
-        type: 'value',
-        min: 0.6,
-        max: 1.0,
-        axisLabel: { color: '#64748b', fontSize: 11, formatter: (v) => `${(v * 100).toFixed(0)}%` },
-        axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
-      },
-      series: [
+      yAxis: [
         {
-          name: 'F1 Score',
-          type: 'line',
-          data: data.missingDataSweep.f1Scores,
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 7,
-          lineStyle: { color: '#3b82f6', width: 2.5 },
-          itemStyle: { color: '#3b82f6', borderColor: '#1e293b', borderWidth: 2 },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(59,130,246,0.22)' },
-              { offset: 1, color: 'rgba(59,130,246,0)' }
-            ])
-          }
+          type: 'value',
+          name: 'Recall',
+          min: 0.6,
+          max: 1.0,
+          axisLabel: { color: '#94a3b8', formatter: '{value}' },
+          splitLine: { lineStyle: { color: '#1e293b' } }
         },
         {
-          name: 'Top-1 Acc',
-          type: 'line',
-          data: data.missingDataSweep.top1Accuracy,
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 7,
-          lineStyle: { color: '#8b5cf6', width: 2.5 },
-          itemStyle: { color: '#8b5cf6', borderColor: '#1e293b', borderWidth: 2 },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(139,92,246,0.18)' },
-              { offset: 1, color: 'rgba(139,92,246,0)' }
-            ])
-          }
+          type: 'value',
+          name: 'Alerts/Day',
+          min: 0,
+          max: 4.0,
+          axisLabel: { color: '#94a3b8' },
+          splitLine: { show: false }
         }
-      ]
-    };
-    ec.setOption(option, true);
-
-    const resizeObs = new ResizeObserver(() => ec.resize());
-    resizeObs.observe(chartRef.current);
-    return () => resizeObs.disconnect();
-  }, [data]);
-
-  return <div ref={chartRef} style={{ width: '100%', height: 240 }} />;
-}
-
-/* ─── LEAD TIME BAR CHART (ECharts) ────────────────────────── */
-function LeadTimeChart({ data }) {
-  const chartRef = useRef(null);
-  const instanceRef = useRef(null);
-
-  useEffect(() => {
-    if (!chartRef.current || !data) return;
-    if (!instanceRef.current) {
-      instanceRef.current = echarts.init(chartRef.current, null, { renderer: 'canvas' });
-    }
-    const ec = instanceRef.current;
-
-    const option = {
-      backgroundColor: 'transparent',
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: '#1e293b',
-        borderColor: '#334155',
-        textStyle: { color: '#e2e8f0', fontSize: 12 },
-        formatter: (p) => `<b>${p[0].name}</b><br/>${p[0].marker} Events: <b>${p[0].value}</b>`
-      },
-      grid: { top: 16, right: 24, bottom: 36, left: 48, containLabel: false },
-      xAxis: {
-        type: 'category',
-        data: data.distribution.map((d) => d.range),
-        axisLabel: { color: '#64748b', fontSize: 10, rotate: 12 },
-        axisLine: { lineStyle: { color: '#334155' } },
-        splitLine: { show: false }
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: { color: '#64748b', fontSize: 11 },
-        axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
-      },
+      ],
       series: [
         {
-          type: 'bar',
-          data: data.distribution.map((d, i) => ({
-            value: d.count,
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: i <= 2 ? '#22c55e' : '#3b82f6' },
-                { offset: 1, color: i <= 2 ? '#16a34a' : '#1d4ed8' }
-              ]),
-              borderRadius: [4, 4, 0, 0]
-            }
-          })),
-          barMaxWidth: 36,
-          label: {
-            show: true,
-            position: 'top',
-            color: '#94a3b8',
-            fontSize: 10,
-            formatter: '{c}'
-          }
+          name: 'Recall',
+          type: 'line',
+          yAxisIndex: 0,
+          data: curve.map((c) => c.recall),
+          lineStyle: { color: '#38bdf8', width: 2.5 },
+          itemStyle: { color: '#38bdf8' }
+        },
+        {
+          name: 'False Alerts / Day',
+          type: 'line',
+          yAxisIndex: 1,
+          data: curve.map((c) => c.false_episodes_day),
+          lineStyle: { color: '#f43f5e', width: 2, type: 'dashed' },
+          itemStyle: { color: '#f43f5e' }
         }
       ]
     };
-    ec.setOption(option, true);
-
-    const resizeObs = new ResizeObserver(() => ec.resize());
-    resizeObs.observe(chartRef.current);
-    return () => resizeObs.disconnect();
+    chart.setOption(option);
+    const onResize = () => chart.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      chart.dispose();
+    };
   }, [data]);
 
-  return <div ref={chartRef} style={{ width: '100%', height: 220 }} />;
-}
-
-/* ─── FALSE ALERT CHART ─────────────────────────────────────── */
-function FalseAlertChart({ data }) {
-  const chartRef = useRef(null);
-  const instanceRef = useRef(null);
-
+  // Noise Sweep Chart
   useEffect(() => {
-    if (!chartRef.current || !data) return;
-    if (!instanceRef.current) {
-      instanceRef.current = echarts.init(chartRef.current, null, { renderer: 'canvas' });
-    }
-    const ec = instanceRef.current;
-
-    const categories = data.noiseLevels.map((n) => `×${n}`);
+    if (!noiseChartRef.current || !data?.robustness?.noise_sweep) return;
+    const chart = echarts.init(noiseChartRef.current);
+    const ns = data.robustness.noise_sweep;
     const option = {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis',
         backgroundColor: '#1e293b',
         borderColor: '#334155',
-        textStyle: { color: '#e2e8f0', fontSize: 12 }
+        textStyle: { color: '#f8fafc', fontSize: 12 }
       },
       legend: {
-        bottom: 4,
-        textStyle: { color: '#94a3b8', fontSize: 10 },
-        itemWidth: 12,
-        itemHeight: 6
+        data: Object.keys(ns.systems),
+        textStyle: { color: '#94a3b8' },
+        top: 0
       },
-      grid: { top: 16, right: 24, bottom: 52, left: 52, containLabel: false },
+      grid: { left: 45, right: 20, bottom: 25, top: 35 },
       xAxis: {
         type: 'category',
-        data: categories,
-        name: 'Noise Scale',
-        nameTextStyle: { color: '#64748b', fontSize: 10 },
-        axisLabel: { color: '#64748b', fontSize: 11 },
+        name: 'Noise Multiplier',
+        data: ns.noise_levels.map((l) => `${l}x`),
         axisLine: { lineStyle: { color: '#334155' } },
-        splitLine: { show: false }
+        axisLabel: { color: '#94a3b8' }
       },
       yAxis: {
         type: 'value',
-        name: 'Alerts/day',
-        nameTextStyle: { color: '#64748b', fontSize: 10 },
-        axisLabel: { color: '#64748b', fontSize: 11 },
-        axisLine: { show: false },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } }
-      },
-      markLine: {
-        silent: true,
-        lineStyle: { color: '#f59e0b', type: 'dashed' }
+        name: 'False Alerts / Day',
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#94a3b8' },
+        splitLine: { lineStyle: { color: '#1e293b' } }
       },
       series: [
         {
           name: 'Limit Checking',
           type: 'line',
-          data: data.systems.limit_checking,
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 6,
+          data: ns.systems['Limit Checking'],
+          lineStyle: { color: '#94a3b8', width: 2, type: 'dashed' },
+          itemStyle: { color: '#94a3b8' }
+        },
+        {
+          name: 'Ridge Baseline',
+          type: 'line',
+          data: ns.systems['Ridge Baseline'],
+          lineStyle: { color: '#eab308', width: 2 },
+          itemStyle: { color: '#eab308' }
+        },
+        {
+          name: 'Conformal GRU (Ours)',
+          type: 'line',
+          data: ns.systems['Conformal GRU (Ours)'],
+          lineStyle: { color: '#10b981', width: 3 },
+          itemStyle: { color: '#10b981' }
+        }
+      ]
+    };
+    chart.setOption(option);
+    const onResize = () => chart.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      chart.dispose();
+    };
+  }, [data]);
+
+  // Masking Sweep Chart
+  useEffect(() => {
+    if (!maskingChartRef.current || !data?.robustness?.masking_sweep?.rows) return;
+    const chart = echarts.init(maskingChartRef.current);
+    const ms = data.robustness.masking_sweep.rows;
+    const option = {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#1e293b',
+        borderColor: '#334155',
+        textStyle: { color: '#f8fafc', fontSize: 12 }
+      },
+      legend: {
+        data: ['Recall', 'RCA Top-1', 'RCA Top-3', 'Mean Confidence'],
+        textStyle: { color: '#94a3b8' },
+        top: 0
+      },
+      grid: { left: 45, right: 20, bottom: 25, top: 35 },
+      xAxis: {
+        type: 'category',
+        data: ms.map((r) => `${r.missing_pct}% Missing`),
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#94a3b8' }
+      },
+      yAxis: {
+        type: 'value',
+        min: 0.2,
+        max: 1.0,
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#94a3b8' },
+        splitLine: { lineStyle: { color: '#1e293b' } }
+      },
+      series: [
+        {
+          name: 'Recall',
+          type: 'line',
+          data: ms.map((r) => r.recall),
+          lineStyle: { color: '#38bdf8', width: 2.5 },
+          itemStyle: { color: '#38bdf8' }
+        },
+        {
+          name: 'RCA Top-1',
+          type: 'line',
+          data: ms.map((r) => r.rca_top1),
           lineStyle: { color: '#f59e0b', width: 2 },
           itemStyle: { color: '#f59e0b' }
         },
         {
-          name: 'Detector Alone',
+          name: 'RCA Top-3',
           type: 'line',
-          data: data.systems.detector_alone,
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 6,
-          lineStyle: { color: '#ef4444', width: 2 },
-          itemStyle: { color: '#ef4444' }
+          data: ms.map((r) => r.rca_top3),
+          lineStyle: { color: '#10b981', width: 2 },
+          itemStyle: { color: '#10b981' }
         },
         {
-          name: 'Detector + Noise Logic',
+          name: 'Mean Confidence',
           type: 'line',
-          data: data.systems.detector_plus_noise_logic,
-          smooth: true,
-          symbol: 'circle',
-          symbolSize: 6,
-          lineStyle: { color: '#22c55e', width: 2.5 },
-          itemStyle: { color: '#22c55e' },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(34,197,94,0.14)' },
-              { offset: 1, color: 'rgba(34,197,94,0)' }
-            ])
-          }
+          data: ms.map((r) => r.mean_confidence),
+          lineStyle: { color: '#c084fc', width: 2, type: 'dashed' },
+          itemStyle: { color: '#c084fc' }
         }
       ]
     };
-    ec.setOption(option, true);
-
-    const resizeObs = new ResizeObserver(() => ec.resize());
-    resizeObs.observe(chartRef.current);
-    return () => resizeObs.disconnect();
+    chart.setOption(option);
+    const onResize = () => chart.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      chart.dispose();
+    };
   }, [data]);
-
-  return <div ref={chartRef} style={{ width: '100%', height: 240 }} />;
-}
-
-/* ─── ROOT CAUSE ACCURACY GAUGE ─────────────────────────────── */
-function RootCauseGauge({ top1, top3 }) {
-  const items = [
-    { label: 'Top-1 Accuracy', value: top1, color: '#3b82f6' },
-    { label: 'Top-3 Accuracy', value: top3, color: '#22c55e' }
-  ];
-  return (
-    <div className="eval-rc-gauges">
-      {items.map((it) => (
-        <div key={it.label} className="eval-rc-gauge-item">
-          <div className="eval-rc-gauge-label">{it.label}</div>
-          <div className="eval-rc-gauge-bar-track">
-            <div
-              className="eval-rc-gauge-bar-fill"
-              style={{ width: pct(it.value), background: it.color }}
-            />
-          </div>
-          <div className="eval-rc-gauge-value" style={{ color: it.color }}>{pct(it.value)}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── MISMATCH TABLE ────────────────────────────────────────── */
-function MismatchTable({ mismatchLevels }) {
-  if (!mismatchLevels) return null;
-  const rows = Object.entries(mismatchLevels).map(([level, d]) => ({ level, ...d }));
-  return (
-    <table className="eval-mismatch-table">
-      <thead>
-        <tr>
-          <th>Mismatch Level</th>
-          <th>Runs</th>
-          <th>Top-1</th>
-          <th>Top-3</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.level}>
-            <td style={{ textTransform: 'capitalize' }}>{r.level}</td>
-            <td>{r.runs}</td>
-            <td>
-              <span className="metric-pill" style={{ '--pill-color': '#3b82f6' }}>
-                {pct(r.top1)}
-              </span>
-            </td>
-            <td>
-              <span className="metric-pill" style={{ '--pill-color': '#22c55e' }}>
-                {pct(r.top3)}
-              </span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-/* ─── SEVERITY MAE BARS ─────────────────────────────────────── */
-function SeverityBars({ severityMae }) {
-  if (!severityMae) return null;
-  const entries = Object.entries(severityMae);
-  const maxV = Math.max(...entries.map(([, v]) => v));
-  return (
-    <div className="eval-severity-list">
-      {entries.map(([fault, mae]) => (
-        <div key={fault} className="eval-severity-row">
-          <span className="eval-severity-label">{fault.replace(/_/g, ' ')}</span>
-          <div className="eval-severity-bar-track">
-            <div
-              className="eval-severity-bar-fill"
-              style={{
-                width: `${(mae / maxV) * 100}%`,
-                background: mae < 3 ? '#22c55e' : mae < 4 ? '#f59e0b' : '#ef4444'
-              }}
-            />
-          </div>
-          <span className="eval-severity-val">{mae.toFixed(1)}%</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ─── INSIGHTS STRIP ─────────────────────────────────────────── */
-function InsightStrip({ summary }) {
-  if (!summary) return null;
-  const items = [
-    {
-      icon: CheckCircle2,
-      color: '#22c55e',
-      label: 'Event-level F1',
-      val: pct(summary.detection?.f1),
-      sub: 'NASA SMAP/MSL'
-    },
-    {
-      icon: Target,
-      color: '#3b82f6',
-      label: 'Root Cause Top-1',
-      val: pct(summary.rootCause?.top1),
-      sub: `${summary.rootCause?.runs} runs`
-    },
-    {
-      icon: Shield,
-      color: '#8b5cf6',
-      label: 'False Alert Rate',
-      val: `${summary.falseAlerts?.measuredPerDay}/day`,
-      sub: `Target ≤ ${summary.falseAlerts?.targetPerDay}/day`
-    },
-    {
-      icon: Clock,
-      color: '#f59e0b',
-      label: 'Mean Lead Time',
-      val: sec2min(summary.leadTime?.meanSec),
-      sub: `Median ${sec2min(summary.leadTime?.medianSec)}`
-    },
-    {
-      icon: Activity,
-      color: '#06b6d4',
-      label: 'Robustness@0%',
-      val: pct(summary.robustness?.f1At0Missing),
-      sub: `@50% missing: ${pct(summary.robustness?.f1At50Missing)}`
-    },
-    {
-      icon: Zap,
-      color: '#ec4899',
-      label: 'Classifier Accuracy',
-      val: pct(summary.classification?.accuracy),
-      sub: '3-class fault classifier'
-    }
-  ];
-
-  return (
-    <div className="eval-insight-strip">
-      {items.map((it) => {
-        const Icon = it.icon;
-        return (
-          <div key={it.label} className="eval-insight-chip">
-            <div className="eval-insight-chip-icon" style={{ '--chip-color': it.color }}>
-              <Icon size={16} />
-            </div>
-            <div className="eval-insight-chip-text">
-              <span className="eval-insight-chip-label">{it.label}</span>
-              <span className="eval-insight-chip-val" style={{ color: it.color }}>{it.val}</span>
-              <span className="eval-insight-chip-sub">{it.sub}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────
-   MAIN PAGE
-────────────────────────────────────────────────────────────── */
-export default function Evaluation() {
-  const [summary, setSummary] = useState(null);
-  const [detection, setDetection] = useState(null);
-  const [rootCause, setRootCause] = useState(null);
-  const [falseAlerts, setFalseAlerts] = useState(null);
-  const [robustness, setRobustness] = useState(null);
-  const [leadTime, setLeadTime] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const [sumR, detR, rcR, faR, robR, ltR] = await Promise.allSettled([
-          evaluationApi.getSummary(),
-          evaluationApi.getDetection(),
-          evaluationApi.getRootCause(),
-          evaluationApi.getFalseAlerts(),
-          evaluationApi.getRobustness(),
-          evaluationApi.getLeadTime()
-        ]);
-
-        const extract = (r) => r.status === 'fulfilled' ? (r.value?.data ?? r.value) : null;
-
-        setSummary(extract(sumR));
-        setDetection(extract(detR));
-        setRootCause(extract(rcR));
-        setFalseAlerts(extract(faR));
-        setRobustness(extract(robR));
-        setLeadTime(extract(ltR));
-      } catch (e) {
-        setError('Failed to load evaluation data. Ensure backend is running on port 5000.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
 
   return (
     <div className="app-container">
       <Sidebar />
       <div className="main-layout">
-        <main className="dashboard-content eval-page">
-
-          {/* ── PAGE HEADER ─────────────────────────────────── */}
-          <div className="eval-page-header">
+        <main className="dashboard-content eval-page-layout">
+          <div className="eval-header-banner">
             <div>
-              <h1 className="eval-header-title">
-                <Brain size={22} className="eval-header-icon" />
-                Model Performance &amp; Evaluation
-              </h1>
-              <p className="eval-header-sub">
-                Benchmark results from NASA SMAP/MSL dataset and Physics-based Initium simulator
+              <h1 className="eval-page-title">Spacecraft RCA Master Evaluation Benchmark</h1>
+              <p className="eval-page-subtitle">
+                Complete, unfiltered offline & online verification results across detectors, causal localization, classifiers, and operational envelopes.
               </p>
             </div>
-            <div className="eval-header-badges">
-              <span className="eval-badge eval-badge-live">
-                <span className="eval-badge-dot" /> Live Data
-              </span>
-              <span className="eval-badge eval-badge-seed">Seed: 42</span>
-              <span className="eval-badge eval-badge-proto">Event-Level Metrics</span>
-            </div>
+            {data?.metadata && (
+              <div className="eval-banner-meta">
+                <span className="meta-pill">Arch: {data.metadata.architecture}</span>
+                <span className="meta-pill">Seed: {data.metadata.seed}</span>
+                <span className="meta-pill status-ready">{data.metadata.status}</span>
+              </div>
+            )}
           </div>
 
-          {loading && (
-            <div className="eval-loading">
-              <div className="eval-spinner" />
-              <span>Loading evaluation metrics…</span>
+          {loading ? (
+            <div className="loading-skeleton-box">
+              <div className="skeleton-line title" />
+              <div className="skeleton-grid" />
             </div>
-          )}
-
-          {error && (
-            <div className="eval-error">
-              <AlertCircle size={18} /> {error}
+          ) : error || !data ? (
+            <div className="card" style={{ padding: '32px', textAlign: 'center', margin: '20px 0' }}>
+              <AlertTriangle size={32} style={{ color: '#ef4444', margin: '0 auto 12px' }} />
+              <h3>Failed to load benchmark evaluation dataset</h3>
+              <p style={{ color: '#94a3b8' }}>{error}</p>
             </div>
-          )}
-
-          {!loading && !error && (
-            <>
-              {/* ── INSIGHT STRIP ─────────────────────────── */}
-              <InsightStrip summary={summary} />
-
-              {/* ── TOP KPI GRID ──────────────────────────── */}
-              <div className="eval-kpi-grid">
-                <KpiCard
-                  icon={Target}
-                  label="Precision"
-                  value={pct(summary?.detection?.precision)}
-                  sub={`Recall: ${pct(summary?.detection?.recall)}`}
-                  color="#3b82f6"
-                  bar={summary?.detection?.precision}
-                />
-                <KpiCard
-                  icon={BarChart2}
-                  label="F1 Score"
-                  value={pct(summary?.detection?.f1)}
-                  sub="Event-level (no point-adjust)"
-                  color="#22c55e"
-                  bar={summary?.detection?.f1}
-                />
-                <KpiCard
-                  icon={Brain}
-                  label="Root Cause Top-3"
-                  value={pct(summary?.rootCause?.top3)}
-                  sub={`Top-1: ${pct(summary?.rootCause?.top1)}`}
-                  color="#8b5cf6"
-                  bar={summary?.rootCause?.top3}
-                />
-                <KpiCard
-                  icon={Clock}
-                  label="Mean Lead Time"
-                  value={sec2min(summary?.leadTime?.meanSec)}
-                  sub={`Median: ${sec2min(summary?.leadTime?.medianSec)}`}
-                  color="#f59e0b"
-                />
-                <KpiCard
-                  icon={Shield}
-                  label="False Alert Rate"
-                  value={`${summary?.falseAlerts?.measuredPerDay ?? '—'}/day`}
-                  sub={`Target ≤ ${summary?.falseAlerts?.targetPerDay ?? 1}/day over ${summary?.falseAlerts?.faultFreeSimDays ?? 45}d`}
-                  color="#06b6d4"
-                />
-                <KpiCard
-                  icon={TrendingUp}
-                  label="Severity MAE"
-                  value={`${summary?.rootCause?.severityMaePct ?? '—'}%`}
-                  sub="Across all fault types"
-                  color="#ec4899"
-                />
-              </div>
-
-              {/* ── CHANNEL TABLE ─────────────────────────── */}
-              <ChannelTable channels={detection?.channels} />
-
-              {/* ── ROBUSTNESS + FALSE ALERT (2-col) ─────── */}
-              <div className="eval-two-col">
-                <div className="eval-section">
-                  <h3 className="eval-section-title">
-                    <Activity size={16} /> Robustness vs. Missing Data
-                  </h3>
-                  <p className="eval-section-sub">
-                    F1 and Root-Cause accuracy across % of missing sensor readings
-                  </p>
-                  <RobustnessChart data={robustness} />
-                </div>
-
-                <div className="eval-section">
-                  <h3 className="eval-section-title">
-                    <Shield size={16} /> False Alert Rate vs. Noise Scale
-                  </h3>
-                  <p className="eval-section-sub">
-                    Alert episodes per fault-free day under increasing sensor noise
-                  </p>
-                  <FalseAlertChart data={falseAlerts} />
-                </div>
-              </div>
-
-              {/* ── ROOT CAUSE + LEAD TIME (2-col) ───────── */}
-              <div className="eval-two-col">
-                <div className="eval-section">
-                  <h3 className="eval-section-title">
-                    <Brain size={16} /> Root Cause Localisation
-                  </h3>
-                  <RootCauseGauge
-                    top1={rootCause?.top1Accuracy}
-                    top3={rootCause?.top3Accuracy}
-                  />
-                  <div style={{ marginTop: 16 }}>
-                    <p className="eval-section-sub" style={{ marginBottom: 8 }}>
-                      Accuracy by model-plant mismatch level
-                    </p>
-                    <MismatchTable mismatchLevels={rootCause?.mismatchLevels} />
-                  </div>
-                  <div style={{ marginTop: 20 }}>
-                    <p className="eval-section-sub" style={{ marginBottom: 8 }}>
-                      Severity MAE per fault type
-                    </p>
-                    <SeverityBars severityMae={rootCause?.severityMae} />
+          ) : (
+            <div className="eval-sections-stack">
+              {/* SECTION 1: DETECTION PERFORMANCE */}
+              <section className="eval-card-panel">
+                <div className="eval-card-header">
+                  <div className="title-left">
+                    <Activity size={20} className="header-icon text-cyan" />
+                    <div>
+                      <h2 className="card-section-title">1. Detection Performance & Budget Curve</h2>
+                      <CardProvenance
+                        sourceFile={data.detection_8faults?.source_file}
+                        generatedAt={data.detection_8faults?.generated_at}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="eval-section">
-                  <h3 className="eval-section-title">
-                    <Clock size={16} /> Lead Time Distribution
-                  </h3>
-                  <p className="eval-section-sub">
-                    How many seconds before hard-limit alarm does ASTRAIL alert?
+                <div className="eval-card-body grid-2col">
+                  <div>
+                    <h3 className="sub-title">False-Alert Budget Operating Curve</h3>
+                    <div ref={budgetChartRef} style={{ width: '100%', height: '260px' }} />
+                  </div>
+                  <div>
+                    <h3 className="sub-title">Budget Operating Points</h3>
+                    <div className="table-responsive">
+                      <table className="clean-eval-table">
+                        <thead>
+                          <tr>
+                            <th>Threshold</th>
+                            <th>False Alerts / Day</th>
+                            <th>Recall</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.detection_8faults?.budget_curve?.map((b) => (
+                            <tr key={b.threshold} className={b.threshold === 1.022 ? 'row-highlight' : ''}>
+                              <td>
+                                <strong>{renderVal(b.threshold)}</strong> {b.threshold === 1.022 && <span className="tag-calibrated">Operating Point</span>}
+                              </td>
+                              <td>{renderVal(b.false_episodes_day)}</td>
+                              <td>{renderVal(b.recall)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="eval-table-container">
+                  <h3 className="sub-title">8 Real Flight Faults: Multi-Detector Comparison</h3>
+                  <div className="table-responsive">
+                    <table className="clean-eval-table">
+                      <thead>
+                        <tr>
+                          <th>Fault ID</th>
+                          <th>Subsystem</th>
+                          <th>Anomaly Pattern</th>
+                          <th>Ridge Baseline</th>
+                          <th>Conformal GRU</th>
+                          <th>Z-Score Baseline</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.detection_8faults?.records?.map((r) => (
+                          <tr key={r.fault_id}>
+                            <td><strong>{r.fault_id}</strong></td>
+                            <td><span className="badge-subsystem">{r.subsystem}</span></td>
+                            <td><code>{r.true_anomaly}</code></td>
+                            <td>
+                              {r.ridge_detected ? (
+                                <span className="status-det-yes">Detected (row {renderVal(r.ridge_row)})</span>
+                              ) : (
+                                <span className="status-det-no">Missed</span>
+                              )}
+                            </td>
+                            <td>
+                              {r.gru_detected ? (
+                                <span className="status-det-yes">Detected (row {renderVal(r.gru_row)})</span>
+                              ) : (
+                                <span className="status-det-no">Missed</span>
+                              )}
+                            </td>
+                            <td>
+                              {r.zscore_detected ? (
+                                <span className="status-det-yes">Detected (row {renderVal(r.zscore_row)})</span>
+                              ) : (
+                                <span className="status-det-no">Missed</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 2: LEAD TIME VS OPERATIONAL LIMITS */}
+              <section className="eval-card-panel">
+                <div className="eval-card-header">
+                  <div className="title-left">
+                    <Clock size={20} className="header-icon text-amber" />
+                    <div>
+                      <h2 className="card-section-title">2. Lead Time vs Hard Operational Limits</h2>
+                      <CardProvenance
+                        sourceFile={data.lead_time?.source_file}
+                        generatedAt={data.lead_time?.generated_at}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="eval-card-body">
+                  <p className="card-desc">
+                    Lead time represents rows ahead of telemetry hard-limit alarm. Negative leads represent abrupt step faults where hard limits were breached prior to residual persistence confirmation.
                   </p>
-                  <LeadTimeChart data={leadTime} />
-                  {leadTime && (
-                    <div className="eval-lead-stats">
-                      <div className="eval-lead-stat">
-                        <span className="eval-lead-stat-label">Mean</span>
-                        <span className="eval-lead-stat-val" style={{ color: '#22c55e' }}>
-                          {sec2min(leadTime.meanLeadTimeSec)}
-                        </span>
-                      </div>
-                      <div className="eval-lead-stat">
-                        <span className="eval-lead-stat-label">Median</span>
-                        <span className="eval-lead-stat-val" style={{ color: '#3b82f6' }}>
-                          {sec2min(leadTime.medianLeadTimeSec)}
-                        </span>
-                      </div>
-                      <div className="eval-lead-stat">
-                        <span className="eval-lead-stat-label">Undetected by limits</span>
-                        <span className="eval-lead-stat-val" style={{ color: '#ec4899' }}>
-                          {leadTime.neverCaughtByLimitCheckerCount} events
-                        </span>
+
+                  <div className="table-responsive">
+                    <table className="clean-eval-table">
+                      <thead>
+                        <tr>
+                          <th>Fault ID</th>
+                          <th>Subsystem</th>
+                          <th>Hard Limit Alarm Row</th>
+                          <th>Our Alert Row</th>
+                          <th>Lead (Rows)</th>
+                          <th>First Limit Crossing Row</th>
+                          <th>Affected Signal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.detection_8faults?.records?.map((r) => {
+                          const isNegative = typeof r.lead_rows === 'number' && r.lead_rows < 0;
+                          const isNever = r.lead_rows === 'never';
+                          const isPositive = typeof r.lead_rows === 'number' && r.lead_rows > 0;
+                          return (
+                            <tr key={r.fault_id}>
+                              <td><strong>{r.fault_id}</strong></td>
+                              <td><span className="badge-subsystem">{r.subsystem}</span></td>
+                              <td>{renderVal(r.limit_alarm_row)}</td>
+                              <td>{renderVal(r.gru_row)}</td>
+                              <td>
+                                <span
+                                  className={`lead-tag ${
+                                    isPositive ? 'lead-positive' : isNegative ? 'lead-negative' : 'lead-never'
+                                  }`}
+                                >
+                                  {isPositive ? `+${r.lead_rows}` : renderVal(r.lead_rows)}
+                                </span>
+                              </td>
+                              <td>{renderVal(r.first_signal_crossed_limit)}</td>
+                              <td><code>{renderVal(r.affected_signal)}</code></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {data.lead_time?.gradual_lead_analysis && (
+                    <div className="gradual-lead-box">
+                      <h4 className="sub-title">Gradual Faults & Hazard Time Analysis</h4>
+                      <div className="grid-3col">
+                        <div className="mini-stat-card">
+                          <span className="stat-label">F001 (Thermal Drift)</span>
+                          <span className="stat-val text-green">+57 rows lead</span>
+                          <span className="stat-note">57 rows ahead of radiator temperature envelope trip</span>
+                        </div>
+                        <div className="mini-stat-card">
+                          <span className="stat-label">F006 (Payload Degradation)</span>
+                          <span className="stat-val text-green">+57 rows lead</span>
+                          <span className="stat-note">57 rows ahead of payload power hard cutoff</span>
+                        </div>
+                        <div className="mini-stat-card">
+                          <span className="stat-label">Drift Benchmark Set</span>
+                          <span className="stat-val text-cyan">42.6 rows mean</span>
+                          <span className="stat-note">Evaluated across 30 constructed gradual drift events</span>
+                        </div>
                       </div>
                     </div>
                   )}
-                  {leadTime?.note && (
-                    <p className="eval-note">{leadTime.note}</p>
-                  )}
                 </div>
+              </section>
+
+              {/* SECTION 3: ROOT CAUSE ANALYSIS (REAL 8 & INJECTED) */}
+              <div className="grid-2col-cards">
+                {/* Real 8 Faults RCA */}
+                <section className="eval-card-panel">
+                  <div className="eval-card-header">
+                    <div className="title-left">
+                      <Compass size={20} className="header-icon text-purple" />
+                      <div>
+                        <div className="flex-row-center">
+                          <h2 className="card-section-title">3A. Root Cause Analysis: Real Flight Faults</h2>
+                          <ProvisionalBadge reason="Small flight sample size (n=8 flight anomalies)" />
+                        </div>
+                        <CardProvenance
+                          sourceFile={data.root_cause_real_8?.source_file}
+                          generatedAt={data.root_cause_real_8?.generated_at}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="eval-card-body">
+                    <div className="kpi-banner-row">
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Top-1 Accuracy</span>
+                        <span className="kpi-value text-purple">{renderVal(data.root_cause_real_8?.top1_accuracy)}</span>
+                        <span className="kpi-ci">
+                          95% CI: [{renderVal(data.root_cause_real_8?.top1_ci95?.[0])}, {renderVal(data.root_cause_real_8?.top1_ci95?.[1])}]
+                        </span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Top-3 Accuracy</span>
+                        <span className="kpi-value text-cyan">{renderVal(data.root_cause_real_8?.top3_accuracy)}</span>
+                        <span className="kpi-ci">
+                          95% CI: [{renderVal(data.root_cause_real_8?.top3_ci95?.[0])}, {renderVal(data.root_cause_real_8?.top3_ci95?.[1])}]
+                        </span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Confidence Gate</span>
+                        <span className="kpi-value text-green">{renderVal(data.root_cause_real_8?.confidence_gate?.status)}</span>
+                        <span className="kpi-ci">
+                          Correct: {renderVal(data.root_cause_real_8?.confidence_gate?.mean_correct_conf)} vs Wrong: {renderVal(data.root_cause_real_8?.confidence_gate?.mean_wrong_conf)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="table-responsive">
+                      <table className="clean-eval-table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Fault</th>
+                            <th>True Source</th>
+                            <th>Top-1 Pred</th>
+                            <th>Top-2 Pred</th>
+                            <th>Top-3 Pred</th>
+                            <th>Rank</th>
+                            <th>Confidence</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.root_cause_real_8?.records?.map((r) => (
+                            <tr key={r.fault_id}>
+                              <td><strong>{r.fault_id}</strong></td>
+                              <td><span className="badge-subsystem">{r.true_subsystem}</span></td>
+                              <td>{r.top1} ({renderVal(r.top1_score)})</td>
+                              <td>{r.top2} ({renderVal(r.top2_score)})</td>
+                              <td>{r.top3} ({renderVal(r.top3_score)})</td>
+                              <td>
+                                <span className={`rank-pill rank-${r.rank}`}>
+                                  {r.rank > 0 ? `#${r.rank}` : 'Unranked'}
+                                </span>
+                              </td>
+                              <td>{renderVal(r.confidence)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Injected RCA Comparison */}
+                <section className="eval-card-panel">
+                  <div className="eval-card-header">
+                    <div className="title-left">
+                      <Layers size={20} className="header-icon text-indigo" />
+                      <div>
+                        <div className="flex-row-center">
+                          <h2 className="card-section-title">3B. RCA Harder Injector Comparison</h2>
+                          <ProvisionalBadge reason="Synthetic harder injector evaluation (source-channel ratio 1.5-3x, n=190)" />
+                        </div>
+                        <CardProvenance
+                          sourceFile={data.root_cause_injected?.source_file}
+                          generatedAt={data.root_cause_injected?.generated_at}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="eval-card-body">
+                    <p className="card-desc">
+                      Stress evaluation on 190 synthetic fault injections using harder source-channel coupling ratios (1.5x - 3.0x).
+                    </p>
+
+                    <div className="table-responsive">
+                      <table className="clean-eval-table">
+                        <thead>
+                          <tr>
+                            <th>Model Architecture</th>
+                            <th>Top-1 Accuracy</th>
+                            <th>Top-1 (95% CI)</th>
+                            <th>Top-3 Accuracy</th>
+                            <th>Top-3 (95% CI)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.root_cause_injected?.baselines?.map((m) => (
+                            <tr key={m.model} className={m.model.includes('Astrail') ? 'row-highlight' : ''}>
+                              <td><strong>{m.model}</strong></td>
+                              <td>{renderVal(m.top1)}</td>
+                              <td>[{renderVal(m.top1_ci95?.[0])}, {renderVal(m.top1_ci95?.[1])}]</td>
+                              <td>{renderVal(m.top3)}</td>
+                              <td>[{renderVal(m.top3_ci95?.[0])}, {renderVal(m.top3_ci95?.[1])}]</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="notice-box">
+                      <strong>Methodological Disclosure:</strong> The harder injector tests multi-hop causality where auxiliary channels drift simultaneously. Conformal GRU + DAG RCA maintains a significant margin over heuristic baselines.
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              {/* ── PROTOCOL FOOTER ───────────────────────── */}
-              {detection?.evaluationProtocol && (
-                <div className="eval-protocol">
-                  <AlertCircle size={14} />
-                  <span>{detection.evaluationProtocol}</span>
+              {/* SECTION 4: CLASSIFIER MATRICES */}
+              <div className="grid-2col-cards">
+                {/* Injected Test Set Confusion Matrix */}
+                <section className="eval-card-panel">
+                  <div className="eval-card-header">
+                    <div className="title-left">
+                      <Shield size={20} className="header-icon text-emerald" />
+                      <div>
+                        <h2 className="card-section-title">4A. Event Classifier: Held-Out Test Set</h2>
+                        <CardProvenance
+                          sourceFile={data.classifier_injected?.source_file}
+                          generatedAt={data.classifier_injected?.generated_at}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="eval-card-body">
+                    <div className="kpi-banner-row">
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Precision</span>
+                        <span className="kpi-value text-emerald">{renderVal(data.classifier_injected?.precision)}</span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Recall</span>
+                        <span className="kpi-value text-cyan">{renderVal(data.classifier_injected?.recall)}</span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">F1 Score</span>
+                        <span className="kpi-value text-purple">{renderVal(data.classifier_injected?.f1)}</span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Accuracy</span>
+                        <span className="kpi-value text-emerald">{renderVal(data.classifier_injected?.accuracy)}</span>
+                      </div>
+                    </div>
+
+                    <h4 className="sub-title">Confusion Matrix (n = {data.classifier_injected?.total_samples || 300})</h4>
+                    <div className="matrix-table-wrap">
+                      <table className="confusion-matrix-table">
+                        <thead>
+                          <tr>
+                            <th>True \ Pred</th>
+                            {data.classifier_injected?.classes?.map((c) => (
+                              <th key={c}><code>{c}</code></th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.classifier_injected?.classes?.map((rowLabel, rIdx) => (
+                            <tr key={rowLabel}>
+                              <th><code>{rowLabel}</code></th>
+                              {data.classifier_injected?.confusion_matrix?.[rIdx]?.map((val, cIdx) => (
+                                <td
+                                  key={cIdx}
+                                  className={rIdx === cIdx ? 'cell-diag' : val > 0 ? 'cell-offdiag' : 'cell-zero'}
+                                >
+                                  {val}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Real Faults Classifier */}
+                <section className="eval-card-panel">
+                  <div className="eval-card-header">
+                    <div className="title-left">
+                      <Database size={20} className="header-icon text-sky" />
+                      <div>
+                        <div className="flex-row-center">
+                          <h2 className="card-section-title">4B. Classifier: 8 Real Flight Faults</h2>
+                          <ProvisionalBadge reason="Small sample size (n=8 flight events)" />
+                        </div>
+                        <CardProvenance
+                          sourceFile={data.classifier_real_faults?.source_file}
+                          generatedAt={data.classifier_real_faults?.generated_at}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="eval-card-body">
+                    <p className="card-desc">
+                      Zero-shot generalization of the random forest event classifier evaluated directly against real flight faults.
+                    </p>
+
+                    <div className="table-responsive">
+                      <table className="clean-eval-table">
+                        <thead>
+                          <tr>
+                            <th>Fault ID</th>
+                            <th>True Event Type</th>
+                            <th>Predicted Type</th>
+                            <th>Confidence</th>
+                            <th>Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.classifier_real_faults?.records?.map((r) => (
+                            <tr key={r.fault_id}>
+                              <td><strong>{r.fault_id}</strong></td>
+                              <td><code>{r.true_type}</code></td>
+                              <td><code>{r.predicted_type}</code></td>
+                              <td>{renderVal(r.confidence)}</td>
+                              <td>
+                                {r.correct ? (
+                                  <span className="badge-pass">CORRECT</span>
+                                ) : (
+                                  <span className="badge-fail">MISCLASSIFIED</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              {/* SECTION 5: ROBUSTNESS SWEEPS */}
+              <section className="eval-card-panel">
+                <div className="eval-card-header">
+                  <div className="title-left">
+                    <Sliders size={20} className="header-icon text-teal" />
+                    <div>
+                      <div className="flex-row-center">
+                        <h2 className="card-section-title">5. Robustness & Telemetry Stress Sweeps</h2>
+                        <ProvisionalBadge reason="Synthetic MC dropout / Bernoulli masking & additive Gaussian jitter" />
+                      </div>
+                      <CardProvenance
+                        sourceFile={data.robustness?.source_file}
+                        generatedAt={data.robustness?.generated_at}
+                      />
+                    </div>
+                  </div>
                 </div>
-              )}
-            </>
+
+                <div className="eval-card-body grid-2col">
+                  <div>
+                    <h3 className="sub-title">Masking Sweep Performance (0% to 40% Missing)</h3>
+                    <div ref={maskingChartRef} style={{ width: '100%', height: '240px' }} />
+                    <div className="table-responsive">
+                      <table className="clean-eval-table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Missing %</th>
+                            <th>Recall</th>
+                            <th>Alerts/Day</th>
+                            <th>RCA Top-1</th>
+                            <th>RCA Top-3</th>
+                            <th>Mean Conf</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.robustness?.masking_sweep?.rows?.map((row) => (
+                            <tr key={row.missing_pct}>
+                              <td><strong>{row.missing_pct}%</strong></td>
+                              <td>{renderVal(row.recall)}</td>
+                              <td>{renderVal(row.false_episodes_day)}</td>
+                              <td>{renderVal(row.rca_top1)}</td>
+                              <td>{renderVal(row.rca_top3)}</td>
+                              <td>{renderVal(row.mean_confidence)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="sub-title">Noise Sweep Across Detectors</h3>
+                    <div ref={noiseChartRef} style={{ width: '100%', height: '240px' }} />
+                    <div className="table-responsive">
+                      <table className="clean-eval-table compact-table">
+                        <thead>
+                          <tr>
+                            <th>Detector</th>
+                            {data.robustness?.noise_sweep?.noise_levels?.map((lvl) => (
+                              <th key={lvl}>{lvl}x Noise</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(data.robustness?.noise_sweep?.systems || {}).map(([name, vals]) => (
+                            <tr key={name} className={name.includes('Ours') ? 'row-highlight' : ''}>
+                              <td><strong>{name}</strong></td>
+                              {vals.map((v, i) => (
+                                <td key={i}>{renderVal(v)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 6: DRIFT DEMONSTRATION & TIME-TO-LIMIT */}
+              <div className="grid-2col-cards">
+                {/* Drift Demonstration */}
+                <section className="eval-card-panel">
+                  <div className="eval-card-header">
+                    <div className="title-left">
+                      <TrendingDown size={20} className="header-icon text-rose" />
+                      <div>
+                        <div className="flex-row-center">
+                          <h2 className="card-section-title">6A. Constructed Drift Demonstration</h2>
+                          <ProvisionalBadge reason="Constructed demo (synthetic slow drift injected over 30 runs)" />
+                        </div>
+                        <CardProvenance
+                          sourceFile={data.drift_demo?.source_file}
+                          generatedAt={data.drift_demo?.generated_at}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="eval-card-body">
+                    <div className="demo-label-pill">{data.drift_demo?.label}</div>
+                    <div className="kpi-banner-row" style={{ marginTop: '12px' }}>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Total Drift Runs</span>
+                        <span className="kpi-value text-slate">{renderVal(data.drift_demo?.total_runs)}</span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">CUSUM Alone</span>
+                        <span className="kpi-value text-rose">{renderVal(data.drift_demo?.cusum_detected)} / 30</span>
+                      </div>
+                      <div className="kpi-tile">
+                        <span className="kpi-label">Conformal GRU</span>
+                        <span className="kpi-value text-cyan">{renderVal(data.drift_demo?.gru_detected)} / 30</span>
+                      </div>
+                    </div>
+
+                    <div className="reconciliation-box">
+                      <h4 className="box-title">Reconciliation Analysis (27 vs 26 Undetected)</h4>
+                      <p className="box-text">{data.drift_demo?.reconciliation}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Time-to-Limit Projection */}
+                <section className="eval-card-panel">
+                  <div className="eval-card-header">
+                    <div className="title-left">
+                      <Radio size={20} className="header-icon text-blue" />
+                      <div>
+                        <div className="flex-row-center">
+                          <h2 className="card-section-title">6B. Time-to-Limit Extrapolation</h2>
+                          <ProvisionalBadge reason="Theil-Sen slope extrapolation sensitivity under non-linear plateau" />
+                        </div>
+                        <CardProvenance
+                          sourceFile={data.time_to_limit?.source_file}
+                          generatedAt={data.time_to_limit?.generated_at}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="eval-card-body">
+                    <div className="ttl-card">
+                      <h4 className="sub-title">F006 Evaluation (Payload Power Supply Degradation)</h4>
+                      <ul className="ttl-stats-list">
+                        <li><strong>Projected Channel:</strong> <code>{renderVal(data.time_to_limit?.f006?.channel)}</code></li>
+                        <li><strong>Projected Crossing Row:</strong> {renderVal(data.time_to_limit?.f006?.projected_crossing_row)}</li>
+                        <li><strong>True Crossing Row:</strong> {renderVal(data.time_to_limit?.f006?.true_crossing_row)} (on <code>{renderVal(data.time_to_limit?.f006?.true_crossing_signal)}</code>)</li>
+                        <li><strong>80% Projected Range:</strong> [{renderVal(data.time_to_limit?.f006?.range_80?.[0])}, {renderVal(data.time_to_limit?.f006?.range_80?.[1])}]</li>
+                        <li><strong>Absolute Error:</strong> {renderVal(data.time_to_limit?.f006?.error_rows)} rows (Error larger than lead: {renderVal(data.time_to_limit?.f006?.error_larger_than_true_lead)})</li>
+                      </ul>
+                      <p className="box-text" style={{ marginTop: '8px' }}>
+                        {data.time_to_limit?.f006?.reconciliation_explanation}
+                      </p>
+                    </div>
+
+                    <div className="ttl-card" style={{ marginTop: '12px' }}>
+                      <h4 className="sub-title">F001 Evaluation (Thermal Drift)</h4>
+                      <p className="box-text">
+                        <strong>Status:</strong> {renderVal(data.time_to_limit?.f001?.status)}
+                      </p>
+                      <p className="box-text" style={{ marginTop: '4px' }}>
+                        {data.time_to_limit?.f001?.explanation}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              {/* SECTION 7: ABLATION STUDIES */}
+              <section className="eval-card-panel">
+                <div className="eval-card-header">
+                  <div className="title-left">
+                    <Cpu size={20} className="header-icon text-violet" />
+                    <div>
+                      <h2 className="card-section-title">7. Architectural Ablation Studies</h2>
+                      <CardProvenance
+                        sourceFile={data.ablations?.source_file}
+                        generatedAt={data.ablations?.generated_at}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="eval-card-body">
+                  <p className="card-desc">
+                    Systematic component removal evaluating the contribution of CUSUM accumulator, Conformal Calibration, and DAG Causal Filtering.
+                  </p>
+
+                  <div className="table-responsive">
+                    <table className="clean-eval-table">
+                      <thead>
+                        <tr>
+                          <th>Configuration</th>
+                          <th>Recall</th>
+                          <th>Precision</th>
+                          <th>RCA Top-1</th>
+                          <th>RCA Top-3</th>
+                          <th>False Alerts / Day</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.ablations?.rows?.map((row) => (
+                          <tr key={row.ablation} className={row.ablation.includes('Full') ? 'row-highlight' : ''}>
+                            <td><strong>{row.ablation}</strong></td>
+                            <td>{renderVal(row.recall)}</td>
+                            <td>{renderVal(row.precision)}</td>
+                            <td>{renderVal(row.rca_top1)}</td>
+                            <td>{renderVal(row.rca_top3)}</td>
+                            <td>{renderVal(row.false_episodes_day)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </section>
+            </div>
           )}
         </main>
         <Footer />

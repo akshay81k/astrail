@@ -14,9 +14,12 @@ import IncidentActions from "../components/IncidentActions";
 
 
 
+import { useTelemetry } from "../context/TelemetryContext";
+
 export default function IncidentDetail() {
   const { incidentId } = useParams();
   const navigate = useNavigate();
+  const { incidentsList } = useTelemetry();
   const [incident, setIncident] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,6 +30,21 @@ export default function IncidentDetail() {
     async function fetchIncident() {
       try {
         setLoading(true);
+        // 1. Check in-memory telemetry context first
+        if (incidentsList && incidentsList.length > 0) {
+          const found = incidentsList.find(
+            (i) => i.id === incidentId || i.incidentId === incidentId ||
+                   String(i.id).includes(String(incidentId)) || String(incidentId).includes(String(i.id))
+          );
+          if (found) {
+            setIncident(found);
+            setError(null);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // 2. Query incidentApi (which checks backend + /incident_F001.json, /incident_F004.json, /incident_F006.json)
         const res = await incidentApi.getIncident(incidentId);
         const data = res?.data || res;
         setIncident(data);
@@ -39,7 +57,7 @@ export default function IncidentDetail() {
       }
     }
     fetchIncident();
-  }, [incidentId]);
+  }, [incidentId, incidentsList]);
 
   const handleNodeSelect = (nodeId) => {
     setSelectedNodeId(nodeId);
@@ -109,7 +127,12 @@ export default function IncidentDetail() {
                     explanation={activeIncident.explanation}
                     rootCause={activeIncident.root_cause_analysis}
                   />
-                  <EvidenceList evidence={activeIncident.evidence} />
+                  <EvidenceList
+                    evidence={activeIncident.evidence}
+                    timeToLimit={activeIncident.time_to_limit}
+                    runnerUp={activeIncident.runner_up}
+                    dataQuality={activeIncident.data_quality}
+                  />
                 </div>
 
                 <div className="actions-recommendations-col">
