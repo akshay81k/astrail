@@ -13,7 +13,7 @@ if not DEFAULT_CLEAN_CSV.exists():
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8001/ingest")
 API_KEY = os.getenv("RCA_API_KEY", "dev-key-123")
 
-def stream_data(csv_path: str, start_row: int = 0, delay_sec: float = 0.25, loop: bool = True):
+def stream_data(csv_path: str, start_row: int = 11900, delay_sec: float = 0.1, loop: bool = True):
     print(f"Loading real telemetry dataset from: {csv_path}")
     df = pd.read_csv(csv_path)
     total_rows = len(df)
@@ -87,8 +87,8 @@ def stream_data(csv_path: str, start_row: int = 0, delay_sec: float = 0.25, loop
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stream real spacecraft telemetry to ML RCA API")
     parser.add_argument("--csv", default=str(DEFAULT_CLEAN_CSV), help="Path to telemetry CSV file")
-    parser.add_argument("--start-row", type=int, default=0, help="Row index to start streaming from")
-    parser.add_argument("--delay", type=float, default=0.25, help="Delay in seconds between streamed rows")
+    parser.add_argument("--start-row", type=int, default=11900, help="Row index to start streaming from")
+    parser.add_argument("--delay", type=float, default=0.1, help="Delay in seconds between streamed rows")
     parser.add_argument("--no-loop", action="store_true", help="Do not loop after reaching the end of the file")
     args = parser.parse_args()
 

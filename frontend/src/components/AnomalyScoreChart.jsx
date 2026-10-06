@@ -66,7 +66,7 @@ export default function AnomalyScoreChart() {
       type: "category",
       data: timestamps,
       boundaryGap: false,
-      axisLine: { lineStyle: { color: "#334155" } },
+      axisLine: { lineStyle: { color: "#CBD5E1" } },
       axisTick: { show: false },
       axisLabel: {
         color: "#64748B",
@@ -80,7 +80,7 @@ export default function AnomalyScoreChart() {
       max: Math.ceil(maxVal * 1.25),
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: "#1E293B", type: "dashed" } },
+      splitLine: { lineStyle: { color: "#F1F5F9" } },
       axisLabel: { color: "#64748B", fontSize: 11 },
     },
     series: [
@@ -88,7 +88,7 @@ export default function AnomalyScoreChart() {
         name: "Alert Threshold",
         type: "line",
         data: telemetryData.map(() => thresholdVal),
-        lineStyle: { type: "dashed", color: "#64748B", width: 1.5 },
+        lineStyle: { type: "dashed", color: "#EF4444", width: 1.5 },
         showSymbol: false,
         tooltip: { show: false },
       },
@@ -98,14 +98,14 @@ export default function AnomalyScoreChart() {
         smooth: 0.2,
         data: scoreValues,
         lineStyle: {
-          color: "#38BDF8",
-          width: 2,
+          color: anomalyPoint ? "#DC2626" : "#2563EB",
+          width: 2.2,
         },
-        itemStyle: { color: "#38BDF8" },
+        itemStyle: { color: anomalyPoint ? "#DC2626" : "#2563EB" },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: "rgba(56, 189, 248, 0.25)" },
-            { offset: 1, color: "rgba(56, 189, 248, 0.01)" },
+            { offset: 0, color: "rgba(37, 99, 235, 0.20)" },
+            { offset: 1, color: "rgba(37, 99, 235, 0.01)" },
           ]),
         },
         showSymbol: false,

@@ -27,8 +27,18 @@ export default function RankedCauses({ causes = [], onCauseSelect }) {
         <div className="ranked-causes-list">
           {displayCauses.map((item, idx) => {
             const rankNum = item.rank || idx + 1;
-            const pct = item.percentage !== undefined ? item.percentage : Math.round((item.posterior || 0.87) * 100);
+            const rawScore = item.percentage != null
+              ? item.percentage
+              : item.confidence != null
+              ? (item.confidence <= 1 ? item.confidence * 100 : item.confidence)
+              : item.score != null
+              ? (item.score <= 1 ? item.score * 100 : item.score)
+              : item.posterior != null
+              ? (item.posterior <= 1 ? item.posterior * 100 : item.posterior)
+              : 82;
+            const pct = Math.round(rawScore);
             const isTop = rankNum === 1;
+            const causeTitle = item.title || item.hypothesis || item.subsystem || item.name || `Hypothesis #${rankNum}`;
 
             return (
               <div
@@ -39,7 +49,7 @@ export default function RankedCauses({ causes = [], onCauseSelect }) {
                 <div className="cause-rank-num">{rankNum}.</div>
                 <div className="cause-main-info">
                   <div className="cause-title-row">
-                    <span className="cause-name">{item.title || item.hypothesis}</span>
+                    <span className="cause-name">{causeTitle}</span>
                     <span className="cause-pct">{pct < 10 ? `0${pct}%` : `${pct}%`}</span>
                   </div>
                   <div className="cause-bar-track">
