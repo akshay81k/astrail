@@ -3,6 +3,8 @@ const path = require("path");
 const idGen = require("../utils/idGenerator");
 const { signals } = require("../data/signalCatalog");
 const faultCatalog = require("../data/faultCatalog");
+const Incident = require("../models/Incident");
+const incidentStore = require("./incidentStore");
 
 // Load clean CSV dataset for continuous real telemetry streaming
 let datasetRows = [];
@@ -32,6 +34,25 @@ try {
   }
 } catch (e) {
   console.warn("[MockSimulator] Failed reading synthetic CSV:", e.message);
+}
+
+function normalizeFaultType(rawType) {
+  if (!rawType) return null;
+  const t = rawType.toLowerCase();
+  if (t === "wheel_friction" || t === "reaction_wheel_friction" || t === "reaction_wheel_stiction" || t.includes("wheel")) return "wheel_friction";
+  if (t === "heater_stuck_on" || t === "heater_relay_failure" || t.includes("heater")) return "heater_stuck_on";
+  if (t === "battery_degradation" || t === "battery_cell_degradation" || t.includes("battery")) return "battery_degradation";
+  if (t === "solar_degradation" || t === "solar_array_degradation" || t.includes("solar")) return "solar_degradation";
+  if (t === "sensor_spike" || t === "sensor_bias" || t.includes("spike")) return "sensor_spike";
+  if (t === "sensor_drift" || t.includes("drift")) return "sensor_drift";
+  if (t === "sensor_stuck" || t.includes("stuck")) return "sensor_stuck";
+  if (t === "thermal_runaway" || t.includes("runaway")) return "thermal_runaway";
+  if (t === "radiator_degradation" || t.includes("radiator")) return "radiator_degradation";
+  if (t === "communication_degradation" || t.includes("comm")) return "communication_degradation";
+  if (t === "radiation_upset" || t.includes("radiation")) return "radiation_upset";
+  if (t === "payload_overload" || t.includes("payload")) return "payload_overload";
+  if (t === "power_bus_instability" || t.includes("power_bus") || t.includes("instability")) return "power_bus_instability";
+  return t;
 }
 
 class MockSimulator {
@@ -416,11 +437,29 @@ class MockSimulator {
   }
 
   _handleEpisodes(t, persistenceFired, score, threshold, values, forecast) {
-    const activeFault = this.faults.find((f) => f.status === "active");
+    // 1. Process all unlinked active fault injections immediately
+    const unlinkedFaults = this.faults.filter(
+      (f) => f.status === "active" && !f.linkedIncidentId
+    );
 
+    for (const fault of unlinkedFaults) {
+      const episodeId = idGen.anomaly();
+      const incident = this._createIncident(
+        t,
+        episodeId,
+        fault,
+        values,
+        forecast,
+      );
+      this.activeIncidents.push(incident);
+      incidentStore.addIncident(incident);
+      Incident.create(incident).catch(() => {});
+    }
+
+    // 2. Manage natural stream persistence episodes
+    const activeFault = this.faults.find((f) => f.status === "active");
     const shouldTrigger = persistenceFired || Boolean(activeFault);
 
-    // Trigger incident if persistence fired or active fault injected and either no episode exists, or currently in noise but real fault is now active
     if (
       shouldTrigger &&
       (!this.currentEpisode ||
@@ -444,7 +483,7 @@ class MockSimulator {
 
       if (episodeClass === "noise") {
         this.suppressedNoiseEpisodes++;
-      } else {
+      } else if (!activeFault || !unlinkedFaults.includes(activeFault)) {
         const incident = this._createIncident(
           t,
           episodeId,
@@ -453,6 +492,8 @@ class MockSimulator {
           forecast,
         );
         this.activeIncidents.push(incident);
+        incidentStore.addIncident(incident);
+        Incident.create(incident).catch(() => {});
       }
     } else if (this.currentEpisode) {
       this.currentEpisode.peakScore = Math.max(
@@ -460,7 +501,7 @@ class MockSimulator {
         score,
       );
 
-      if (!persistenceFired && score < threshold * 0.8) {
+      if (!persistenceFired && !activeFault && score < threshold * 0.8) {
         // Episode ended
         this.currentEpisode.endSim = t;
         this.currentEpisode = null;
@@ -469,10 +510,59 @@ class MockSimulator {
   }
 
   _createIncident(t, episodeId, activeFault, values, forecast) {
-    const faultType = activeFault ? activeFault.type : "solar_degradation";
-    const faultDef =
-      faultCatalog.find((f) => f.type === faultType) || faultCatalog[0];
+    const rawFaultType = activeFault ? activeFault.type : null;
+    const faultType = normalizeFaultType(rawFaultType);
+    const faultDef = faultCatalog.find((f) => f.type === faultType);
     const incidentId = idGen.incident();
+
+    const safeVal = (val, fallback) => (val !== undefined && val !== null && !isNaN(val)) ? val : fallback;
+
+    const formatTimeOffset = (offsetSec) => {
+      const totalSec = 2 * 3600 + 8 * 60 + t + offsetSec;
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = Math.floor(totalSec % 60);
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    };
+
+    if (!faultDef) {
+      // Inconclusive root cause: do not generate a fake/random solar graph!
+      return {
+        id: incidentId,
+        _id: incidentId,
+        incidentId,
+        sessionId: this.sessionId,
+        status: "open",
+        severity: "warning",
+        risk: "medium",
+        type: "unknown_anomaly",
+        title: "Telemetry Anomaly (Root Cause Inconclusive)",
+        openedAtSim: t,
+        openedAtTs: new Date().toISOString(),
+        detectedTime: formatTimeOffset(0),
+        detectedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        classification: { label: "noise", probs: { noise: 0.8, sensor_fault: 0.1, subsystem_fault: 0.1 } },
+        rankedCauses: [],
+        graph: { nodes: [], edges: [] },
+        propagation: { events: [] },
+        evidence: ["Telemetry excursion exceeded baseline threshold without distinct causal convergence."],
+        explanation: {
+          title: "Root Cause Inconclusive",
+          headline: "Could not isolate an unambiguous root cause for this anomaly.",
+          text: "Automated causal engine could not trace an unambiguous dependency path. Telemetry monitoring ongoing.",
+          evidence: "Cross-channel statistical residual was elevated without clear subsystem DAG localization.",
+          causeConfidence: "Inconclusive (<50% confidence).",
+          action: "Inspect real-time telemetry stream manually."
+        },
+        recommendations: [
+          { rank: 1, action: "Monitor spacecraft bus and check redundant telemetry transducers", rationale: "Ensure anomaly is not a transient noise cluster." }
+        ],
+        confidence: { value: 0.45, previous: 0.45, was: "45%", reason: "Confidence below localization threshold." },
+        affectedSubsystems: [],
+        history: [{ action: "created", note: "Incident opened with inconclusive root cause", timestamp: new Date() }],
+        notes: []
+      };
+    }
 
     // Link fault to incident
     if (activeFault) {
@@ -484,8 +574,8 @@ class MockSimulator {
         outcome: {
           top1Correct: true,
           inTop3: true,
-          severityErrorPct: parseFloat((Math.random() * 4).toFixed(1)),
-          detectionDelaySec: t - activeFault.startSimTime,
+          severityErrorPct: parseFloat((Math.random() * 3.2).toFixed(1)),
+          detectionDelaySec: Math.max(1, t - (activeFault.startSimTime || t)),
         },
       };
     }
@@ -494,7 +584,7 @@ class MockSimulator {
     const classification = {
       label: isSensor ? "sensor_fault" : "subsystem_fault",
       probs: isSensor
-        ? { noise: 0.05, sensor_fault: 0.91, subsystem_fault: 0.04 }
+        ? { noise: 0.04, sensor_fault: 0.92, subsystem_fault: 0.04 }
         : { noise: 0.02, sensor_fault: 0.06, subsystem_fault: 0.92 },
       rulePath: isSensor
         ? ["n_exceeding = 1", "linked_disagree = true", "sensor_fault"]
@@ -505,121 +595,643 @@ class MockSimulator {
           ],
     };
 
-    // Onset and ranked hypotheses
+    // Construct distinct ranked hypotheses dynamically from faultCatalog
+    const otherFaults = faultCatalog.filter((f) => f.type !== faultType);
+    const comp1 = otherFaults[0] || faultCatalog[1];
+    const comp2 = otherFaults[1] || faultCatalog[2];
+
+    const topPosterior = parseFloat((0.88 + (activeFault?.severity || 0.6) * 0.06).toFixed(2));
+    const comp1Posterior = parseFloat(((1.0 - topPosterior) * 0.7).toFixed(2));
+    const comp2Posterior = parseFloat((1.0 - topPosterior - comp1Posterior).toFixed(2));
+
     const rankedCauses = [
       {
+        id: "c1",
+        rank: 1,
         hypothesis: faultType,
-        target: activeFault?.target || "solar_array",
-        posterior: 0.87,
-        severityEstimate: activeFault ? activeFault.severity : 0.22,
-        fitCost: 1.3,
+        title: faultDef.label,
+        target: activeFault?.target || faultDef.subsystem || "power_bus",
+        posterior: topPosterior,
+        percentage: Math.round(topPosterior * 100),
+        severityEstimate: activeFault ? activeFault.severity : 0.65,
+        nodeId: faultDef.subsystem || "source",
+        fitCost: 1.2,
       },
       {
-        hypothesis: "battery_degradation",
-        target: "battery",
-        posterior: 0.08,
-        severityEstimate: 0.31,
-        fitCost: 3.9,
+        id: "c2",
+        rank: 2,
+        hypothesis: comp1.type,
+        title: comp1.label,
+        target: comp1.subsystem || "battery",
+        posterior: comp1Posterior,
+        percentage: Math.round(comp1Posterior * 100),
+        severityEstimate: 0.25,
+        nodeId: comp1.subsystem || "affected",
+        fitCost: 3.8,
       },
       {
-        hypothesis: "heater_stuck_on",
-        target: "heater",
-        posterior: 0.05,
-        severityEstimate: 1.0,
-        fitCost: 4.4,
+        id: "c3",
+        rank: 3,
+        hypothesis: comp2.type,
+        title: comp2.label,
+        target: comp2.subsystem || "thermal",
+        posterior: comp2Posterior,
+        percentage: Math.round(comp2Posterior * 100),
+        severityEstimate: 0.15,
+        nodeId: comp2.subsystem || "thermal",
+        fitCost: 4.6,
       },
     ];
 
-    const topChannel = isSensor
-      ? activeFault?.target || "battery_temp"
-      : "solar_current";
-    const contributions = [
-      {
-        channel: topChannel,
-        share: 0.65,
-        zScore: -4.2,
-        observed: values[topChannel] || 3.9,
-        forecast: forecast[topChannel] || 4.8,
-        unit: "A",
-      },
-      {
-        channel: "battery_temp",
-        share: 0.25,
-        zScore: 3.1,
-        observed: values.battery_temp || 28.5,
-        forecast: forecast.battery_temp || 21.0,
-        unit: "°C",
-      },
-    ];
+    // Build tailored causality graph nodes and edges
+    let graphNodes = [];
+    let graphEdges = [];
+    let propagationEvents = [];
+    let evidenceList = [];
+
+    if (faultType === "heater_stuck_on") {
+      graphNodes = [
+        {
+          id: "thermal",
+          label: "HEATER / THERMAL",
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 20,
+          icon: "Thermometer",
+          metrics: [
+            { label: "Battery Temp:", value: `${values.battery_temp} °C`, highlight: true },
+            { label: "Expected:", value: `${forecast.battery_temp} °C` },
+            { label: "Deviation:", value: `+${(values.battery_temp - forecast.battery_temp).toFixed(1)} °C`, highlight: true },
+          ],
+        },
+        {
+          id: "power",
+          label: "POWER BUS",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 230,
+          y: 190,
+          icon: "Zap",
+          metrics: [
+            { label: "Load Power:", value: `${values.load_power} W`, highlight: true },
+            { label: "Expected:", value: `${forecast.load_power} W` },
+            { label: "Deviation:", value: `+${(values.load_power - forecast.load_power).toFixed(1)} W`, highlight: true },
+          ],
+        },
+        {
+          id: "battery",
+          label: "BATTERY",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 350,
+          y: 350,
+          icon: "Battery",
+          metrics: [
+            { label: "Current:", value: `${values.battery_current} A`, highlight: true },
+            { label: "Expected:", value: `${forecast.battery_current} A` },
+            { label: "Deviation:", value: `+${(values.battery_current - forecast.battery_current).toFixed(2)} A`, highlight: true },
+          ],
+        },
+        {
+          id: "wheel",
+          label: "REACTION WHEEL",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 80,
+          y: 350,
+          icon: "Disc",
+          metrics: [
+            { label: "Speed:", value: `${values.wheel_speed} RPM` },
+            { label: "Expected:", value: `${forecast.wheel_speed} RPM` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+      ];
+
+      graphEdges = [
+        { source: "thermal", target: "power", label: "+35 W", type: "red" },
+        { source: "power", target: "battery", label: "+1.2 A", type: "red" },
+        { source: "power", target: "wheel", label: "Not affected", type: "gray" },
+      ];
+
+      propagationEvents = [
+        { id: "e1", time: formatTimeOffset(-45), title: "Heater Relay Stuck High", desc: "Heater command active continuously (+35W load)", nodeId: "thermal", dotColor: "orange" },
+        { id: "e2", time: formatTimeOffset(-30), title: "Power Bus Load Surge", desc: `Load increased to ${values.load_power} W (+58% over model)`, nodeId: "power", dotColor: "orange" },
+        { id: "e3", time: formatTimeOffset(-10), title: "Battery Temperature Spike", desc: `Battery reached ${values.battery_temp} °C (+18.5 °C surge)`, nodeId: "thermal", dotColor: "red" },
+        { id: "e4", time: formatTimeOffset(0), title: "Anomaly Confirmed", desc: "Persistence detector confirmed thermal anomaly (Score: 8.7, Threshold: 2.1)", nodeId: "thermal", dotColor: "purple" },
+      ];
+
+      evidenceList = [
+        "Thermal heater switch state persistently 1 (active closed)",
+        `Battery temperature reached ${values.battery_temp} °C vs nominal ${forecast.battery_temp} °C`,
+        `Electrical load power surged by +35 W on the primary bus`,
+        "Causal dependency DAG links thermal heater directly to battery temperature enclosure",
+      ];
+    } else if (faultType === "wheel_friction") {
+      const wheelSpd = safeVal(values.wheel_speed, safeVal(values.reaction_wheel_speed_rpm, 1800));
+      const wheelSpdExp = safeVal(forecast.wheel_speed, safeVal(forecast.reaction_wheel_speed_rpm, 1800));
+      const pointErr = safeVal(values.pointing_error, safeVal(values.gyro_x_deg_s, 0.03));
+      const pointErrExp = safeVal(forecast.pointing_error, safeVal(forecast.gyro_x_deg_s, 0.03));
+      const wheelTmp = safeVal(values.wheel_temp, safeVal(values.radiator_temperature_C, 24.0));
+      const wheelTmpExp = safeVal(forecast.wheel_temp, safeVal(forecast.radiator_temperature_C, 12.0));
+      const solarCurr = safeVal(values.solar_current, safeVal(values.solar_array_current_A, 3.08));
+      const solarCurrExp = safeVal(forecast.solar_current, safeVal(forecast.solar_array_current_A, 3.08));
+
+      graphNodes = [
+        {
+          id: "wheel",
+          label: "REACTION WHEEL",
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 20,
+          icon: "Disc",
+          metrics: [
+            { label: "Speed:", value: `${wheelSpd.toFixed(0)} RPM`, highlight: true },
+            { label: "Expected:", value: `${wheelSpdExp.toFixed(0)} RPM` },
+            { label: "Deviation:", value: `-${Math.abs(wheelSpdExp - wheelSpd).toFixed(0)} RPM`, highlight: true },
+          ],
+        },
+        {
+          id: "adcs",
+          label: "ATTITUDE / POINTING",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 230,
+          y: 190,
+          icon: "Compass",
+          metrics: [
+            { label: "Pointing Err:", value: `${pointErr.toFixed(3)}°`, highlight: true },
+            { label: "Expected:", value: `${pointErrExp.toFixed(3)}°` },
+            { label: "Deviation:", value: `+${Math.abs(pointErr - pointErrExp).toFixed(3)}°`, highlight: true },
+          ],
+        },
+        {
+          id: "thermal",
+          label: "WHEEL THERMAL",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 350,
+          y: 350,
+          icon: "Thermometer",
+          metrics: [
+            { label: "Temp:", value: `${wheelTmp.toFixed(1)} °C`, highlight: true },
+            { label: "Expected:", value: `${wheelTmpExp.toFixed(1)} °C` },
+            { label: "Deviation:", value: `+${Math.abs(wheelTmp - wheelTmpExp).toFixed(1)} °C`, highlight: true },
+          ],
+        },
+        {
+          id: "solar",
+          label: "SOLAR ARRAY",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 80,
+          y: 350,
+          icon: "Sun",
+          metrics: [
+            { label: "Current:", value: `${solarCurr.toFixed(2)} A` },
+            { label: "Expected:", value: `${solarCurrExp.toFixed(2)} A` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+      ];
+
+      graphEdges = [
+        { source: "wheel", target: "adcs", label: "+0.15°", type: "red" },
+        { source: "wheel", target: "thermal", label: "+24 °C", type: "red" },
+        { source: "wheel", target: "solar", label: "Not affected", type: "gray" },
+      ];
+
+      propagationEvents = [
+        { id: "e1", time: formatTimeOffset(-45), title: "Wheel Bearing Drag Rise", desc: `Reaction wheel motor speed decelerated to ${wheelSpd.toFixed(0)} RPM under friction`, nodeId: "wheel", dotColor: "orange" },
+        { id: "e2", time: formatTimeOffset(-30), title: "Bearing Temperature Rise", desc: `Wheel bearing temp rose to ${wheelTmp.toFixed(1)} °C`, nodeId: "thermal", dotColor: "orange" },
+        { id: "e3", time: formatTimeOffset(-10), title: "Pointing Attitude Drift", desc: `Pointing error exceeded budget at ${pointErr.toFixed(3)}°`, nodeId: "adcs", dotColor: "red" },
+        { id: "e4", time: formatTimeOffset(0), title: "Anomaly Confirmed", desc: "Conformal persistence triggered on ADCS dynamics", nodeId: "wheel", dotColor: "purple" },
+      ];
+
+      evidenceList = [
+        `Reaction wheel speed decelerated to ${wheelSpd.toFixed(0)} RPM under increased motor current`,
+        `Bearing temperature rose to ${wheelTmp.toFixed(1)} °C (+24 °C above nominal)`,
+        `Spacecraft pointing error reached ${pointErr.toFixed(3)}°`,
+        "Causal DAG isolates mechanical friction in momentum actuator as upstream root",
+      ];
+    } else if (faultType === "sensor_spike" || faultType === "sensor_bias") {
+      graphNodes = [
+        {
+          id: "sensor",
+          label: "RATE GYRO SENSOR",
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 20,
+          icon: "Activity",
+          metrics: [
+            { label: "Gyro Rate X:", value: `${(values.pointing_error * 45 + 1.25).toFixed(2)} °/s`, highlight: true },
+            { label: "Forecast:", value: `${(forecast.pointing_error * 45).toFixed(2)} °/s` },
+            { label: "Deviation:", value: "+1420% (Spike)", highlight: true },
+          ],
+        },
+        {
+          id: "adcs",
+          label: "ATTITUDE / POINTING",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 230,
+          y: 190,
+          icon: "Compass",
+          metrics: [
+            { label: "Pointing Err:", value: `${values.pointing_error}°` },
+            { label: "Expected:", value: `${forecast.pointing_error}°` },
+            { label: "Deviation:", value: "0% (Nominal)" },
+          ],
+        },
+        {
+          id: "power",
+          label: "POWER BUS",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 80,
+          y: 350,
+          icon: "Zap",
+          metrics: [
+            { label: "Bus Voltage:", value: `${values.bus_voltage} V` },
+            { label: "Expected:", value: `${forecast.bus_voltage} V` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+        {
+          id: "thermal",
+          label: "THERMAL",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 350,
+          y: 350,
+          icon: "Thermometer",
+          metrics: [
+            { label: "Temp:", value: `${values.battery_temp} °C` },
+            { label: "Expected:", value: `${forecast.battery_temp} °C` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+      ];
+
+      graphEdges = [
+        { source: "sensor", target: "adcs", label: "Filtered (Transient)", type: "gray" },
+        { source: "adcs", target: "power", label: "Not affected", type: "gray" },
+        { source: "power", target: "thermal", label: "Not affected", type: "gray" },
+      ];
+
+      propagationEvents = [
+        { id: "e1", time: formatTimeOffset(-30), title: "Single-Sample Rate Gyro Excursion", desc: "Transient reading spiked to 4.8σ above conformal baseline threshold", nodeId: "sensor", dotColor: "orange" },
+        { id: "e2", time: formatTimeOffset(-15), title: "Statistical Z-Score Tripped", desc: "Isolated single-transducer reading excursion without secondary bus or thermal correlation", nodeId: "sensor", dotColor: "orange" },
+        { id: "e3", time: formatTimeOffset(-5), title: "Persistence Rule Evaluation", desc: "Persistence counter 1/5 did not sustain across consecutive observation frames", nodeId: "sensor", dotColor: "red" },
+        { id: "e4", time: formatTimeOffset(0), title: "Anomaly Classified as Transient Noise", desc: "Categorized as sensor artifact; all core flight subsystems remain nominal", nodeId: "sensor", dotColor: "purple" },
+      ];
+
+      evidenceList = [
+        "Single telemetry transducer reading spiked without secondary bus or thermal correlation",
+        "Physical cross-sensor estimators (sun sensors, bus current) confirmed normal operations",
+        "Persistence filter rejected transient excursion; no hardware degradation observed",
+        "Causal DAG confirms isolated sensor-level anomaly",
+      ];
+    } else if (faultType === "sensor_drift") {
+      graphNodes = [
+        {
+          id: "sensor",
+          label: "SUN SENSOR",
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 20,
+          icon: "Radio",
+          metrics: [
+            { label: "Measured Angle:", value: "28.4°", highlight: true },
+            { label: "Forecast:", value: "24.1°" },
+            { label: "Deviation:", value: "+4.3° (Drift)", highlight: true },
+          ],
+        },
+        {
+          id: "adcs",
+          label: "ATTITUDE / POINTING",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 230,
+          y: 190,
+          icon: "Compass",
+          metrics: [
+            { label: "Residual:", value: `+${(values.pointing_error + 0.12).toFixed(2)}°`, highlight: true },
+            { label: "Expected:", value: "0.03°" },
+            { label: "Deviation:", value: "+0.12° residual", highlight: true },
+          ],
+        },
+        {
+          id: "power",
+          label: "POWER BUS",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 80,
+          y: 350,
+          icon: "Zap",
+          metrics: [
+            { label: "Bus Voltage:", value: `${values.bus_voltage} V` },
+            { label: "Expected:", value: `${forecast.bus_voltage} V` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+        {
+          id: "thermal",
+          label: "THERMAL",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 350,
+          y: 350,
+          icon: "Thermometer",
+          metrics: [
+            { label: "Temp:", value: `${values.battery_temp} °C` },
+            { label: "Expected:", value: `${forecast.battery_temp} °C` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+      ];
+
+      graphEdges = [
+        { source: "sensor", target: "adcs", label: "Residual +4.3°", type: "red" },
+        { source: "adcs", target: "power", label: "Not affected", type: "gray" },
+      ];
+
+      propagationEvents = [
+        { id: "e1", time: formatTimeOffset(-45), title: "Transducer Calibration Drift", desc: "Sun sensor transducer channel began gradual slope ramp", nodeId: "sensor", dotColor: "orange" },
+        { id: "e2", time: formatTimeOffset(-30), title: "Pointing Residual Divergence", desc: "Analytical twin estimator flagged +0.12° attitude estimation gap", nodeId: "adcs", dotColor: "orange" },
+        { id: "e3", time: formatTimeOffset(-10), title: "Cross-Sensor Voting Failure", desc: "Redundant star tracker and gyro estimators contradicted drifting sun sensor", nodeId: "sensor", dotColor: "red" },
+        { id: "e4", time: formatTimeOffset(0), title: "Sensor Isolated from Loop", desc: "Suspect transducer excluded from ADCS determination loop", nodeId: "sensor", dotColor: "purple" },
+      ];
+
+      evidenceList = [
+        "Sun sensor channel drifted +4.3° away from orbital ephemeris baseline",
+        "Analytical sensor redundancy voting isolated drifting transducer",
+        "Physical actuators and spacecraft rigid body dynamics operate nominally",
+      ];
+    } else if (faultType === "battery_degradation") {
+      const batSoc = safeVal(values.battery_soc, safeVal(values.battery_soc_pct, 65.0));
+      const batSocExp = safeVal(forecast.battery_soc, safeVal(forecast.battery_soc_pct, 76.8));
+      const busV = safeVal(values.bus_voltage, safeVal(values.power_bus_voltage_V, 27.8));
+      const busVExp = safeVal(forecast.bus_voltage, safeVal(forecast.power_bus_voltage_V, 28.2));
+      const batTmp = safeVal(values.battery_temp, safeVal(values.battery_temperature_C, 24.5));
+      const batTmpExp = safeVal(forecast.battery_temp, safeVal(forecast.battery_temperature_C, 21.8));
+      const whlSpd = safeVal(values.wheel_speed, safeVal(values.reaction_wheel_speed_rpm, 1800.0));
+      const whlSpdExp = safeVal(forecast.wheel_speed, safeVal(forecast.reaction_wheel_speed_rpm, 1800.0));
+
+      graphNodes = [
+        {
+          id: "battery",
+          label: "BATTERY CELLS",
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 20,
+          icon: "Battery",
+          metrics: [
+            { label: "Charge SOC:", value: `${batSoc.toFixed(1)}%`, highlight: true },
+            { label: "Expected:", value: `${batSocExp.toFixed(1)}%` },
+            { label: "Deviation:", value: `-${Math.abs(batSocExp - batSoc).toFixed(1)}%`, highlight: true },
+          ],
+        },
+        {
+          id: "power",
+          label: "POWER BUS",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 230,
+          y: 190,
+          icon: "Zap",
+          metrics: [
+            { label: "Bus Voltage:", value: `${busV.toFixed(2)} V`, highlight: true },
+            { label: "Expected:", value: `${busVExp.toFixed(2)} V` },
+            { label: "Deviation:", value: `-${Math.abs(busVExp - busV).toFixed(2)} V`, highlight: true },
+          ],
+        },
+        {
+          id: "thermal",
+          label: "BATTERY THERMAL",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 350,
+          y: 350,
+          icon: "Thermometer",
+          metrics: [
+            { label: "Cell Temp:", value: `${batTmp.toFixed(1)} °C`, highlight: true },
+            { label: "Expected:", value: `${batTmpExp.toFixed(1)} °C` },
+            { label: "Deviation:", value: `+${Math.abs(batTmp - batTmpExp).toFixed(1)} °C`, highlight: true },
+          ],
+        },
+        {
+          id: "wheel",
+          label: "REACTION WHEEL",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 80,
+          y: 350,
+          icon: "Disc",
+          metrics: [
+            { label: "Speed:", value: `${whlSpd.toFixed(0)} RPM` },
+            { label: "Expected:", value: `${whlSpdExp.toFixed(0)} RPM` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+      ];
+
+      graphEdges = [
+        { source: "battery", target: "power", label: "-1.4 V sag", type: "red" },
+        { source: "battery", target: "thermal", label: "+4.2 °C", type: "red" },
+        { source: "power", target: "wheel", label: "Not affected", type: "gray" },
+      ];
+
+      propagationEvents = [
+        { id: "e1", time: formatTimeOffset(-45), title: "Internal Cell Resistance Rise", desc: "Battery terminal impedance increased under nominal discharge cycling", nodeId: "battery", dotColor: "orange" },
+        { id: "e2", time: formatTimeOffset(-30), title: "Accelerated SOC Depletion", desc: `State of charge depleted to ${batSoc.toFixed(1)}% faster than forecast`, nodeId: "battery", dotColor: "orange" },
+        { id: "e3", time: formatTimeOffset(-10), title: "Power Bus Voltage Sag", desc: `Bus voltage sagged to ${busV.toFixed(2)} V under nominal load`, nodeId: "power", dotColor: "red" },
+        { id: "e4", time: formatTimeOffset(0), title: "Energy Storage Degradation Confirmed", desc: "Conformal persistence confirmed battery capacity degradation", nodeId: "battery", dotColor: "purple" },
+      ];
+
+      evidenceList = [
+        `Battery state of charge discharge rate accelerated by 35%`,
+        `Terminal voltage sagged to ${busV.toFixed(2)} V under nominal bus load`,
+        `Internal Joule dissipation elevated cell temperature to ${batTmp.toFixed(1)} °C`,
+        "Causal dependency DAG identifies electrochemical cell degradation as upstream root",
+      ];
+    } else if (faultType === "solar_degradation") {
+      // Solar / Power Degradation
+      const solCurr = safeVal(values.solar_current, safeVal(values.solar_array_current_A, 2.1));
+      const solCurrExp = safeVal(forecast.solar_current, safeVal(forecast.solar_array_current_A, 3.08));
+      const busV = safeVal(values.bus_voltage, safeVal(values.power_bus_voltage_V, 27.8));
+      const busVExp = safeVal(forecast.bus_voltage, safeVal(forecast.power_bus_voltage_V, 28.2));
+      const batSoc = safeVal(values.battery_soc, safeVal(values.battery_soc_pct, 65.0));
+      const batSocExp = safeVal(forecast.battery_soc, safeVal(forecast.battery_soc_pct, 76.8));
+      const whlSpd = safeVal(values.wheel_speed, safeVal(values.reaction_wheel_speed_rpm, 1800.0));
+      const whlSpdExp = safeVal(forecast.wheel_speed, safeVal(forecast.reaction_wheel_speed_rpm, 1800.0));
+
+      const solDevPct = solCurrExp > 0 ? Math.round((1 - solCurr / solCurrExp) * 100) : 18;
+
+      graphNodes = [
+        {
+          id: "solar",
+          label: "SOLAR ARRAY",
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 20,
+          icon: "Sun",
+          metrics: [
+            { label: "Current:", value: `${solCurr.toFixed(2)} A`, highlight: true },
+            { label: "Expected:", value: `${solCurrExp.toFixed(2)} A` },
+            { label: "Deviation:", value: `-${solDevPct}%`, highlight: true },
+          ],
+        },
+        {
+          id: "power",
+          label: "POWER BUS",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 230,
+          y: 190,
+          icon: "Zap",
+          metrics: [
+            { label: "Bus Voltage:", value: `${busV.toFixed(2)} V`, highlight: true },
+            { label: "Expected:", value: `${busVExp.toFixed(2)} V` },
+            { label: "Deviation:", value: `-${Math.abs(busVExp - busV).toFixed(2)} V`, highlight: true },
+          ],
+        },
+        {
+          id: "battery",
+          label: "BATTERY",
+          status: "AFFECTED",
+          statusType: "affected",
+          x: 350,
+          y: 350,
+          icon: "Battery",
+          metrics: [
+            { label: "Charge SOC:", value: `${batSoc.toFixed(1)}%`, highlight: true },
+            { label: "Expected:", value: `${batSocExp.toFixed(1)}%` },
+            { label: "Deviation:", value: `-${Math.abs(batSocExp - batSoc).toFixed(1)}%`, highlight: true },
+          ],
+        },
+        {
+          id: "wheel",
+          label: "REACTION WHEEL",
+          status: "NORMAL",
+          statusType: "normal",
+          x: 80,
+          y: 350,
+          icon: "Disc",
+          metrics: [
+            { label: "Speed:", value: `${whlSpd.toFixed(0)} RPM` },
+            { label: "Expected:", value: `${whlSpdExp.toFixed(0)} RPM` },
+            { label: "Deviation:", value: "0%" },
+          ],
+        },
+      ];
+
+      graphEdges = [
+        { source: "solar", target: "power", label: `-${solDevPct}%`, type: "red" },
+        { source: "power", target: "battery", label: "-19%", type: "red" },
+        { source: "power", target: "wheel", label: "Not affected", type: "gray" },
+      ];
+
+      propagationEvents = [
+        { id: "e1", time: formatTimeOffset(-45), title: "Solar Array Output Drop", desc: `Photovoltaic current fell to ${solCurr.toFixed(2)} A`, nodeId: "solar", dotColor: "orange" },
+        { id: "e2", time: formatTimeOffset(-30), title: "Power Bus Voltage Sag", desc: `Bus voltage dropped to ${busV.toFixed(2)} V`, nodeId: "power", dotColor: "orange" },
+        { id: "e3", time: formatTimeOffset(-10), title: "Battery SOC Discharge", desc: `Battery state of charge depleted to ${batSoc.toFixed(1)}%`, nodeId: "battery", dotColor: "red" },
+        { id: "e4", time: formatTimeOffset(0), title: "Anomaly Confirmed", desc: "Conformal persistence triggered on EPS power subsystem", nodeId: "solar", dotColor: "purple" },
+      ];
+
+      evidenceList = [
+        `Solar array current dropped from ${solCurrExp.toFixed(2)} A to ${solCurr.toFixed(2)} A`,
+        `Main power bus voltage sagged to ${busV.toFixed(2)} V under nominal load`,
+        `Battery state of charge discharge rate accelerated by 35%`,
+        "Causal dependency DAG identifies solar array as the primary upstream energy source",
+      ];
+    } else {
+      // Dynamic fallback for any other catalog fault
+      const sub = faultDef.subsystem || "power";
+      graphNodes = [
+        {
+          id: sub,
+          label: `${sub.toUpperCase()} SUBSYSTEM`,
+          status: "SOURCE",
+          statusType: "source",
+          x: 230,
+          y: 50,
+          icon: sub === "thermal" ? "Thermometer" : sub === "attitude" ? "Compass" : "Zap",
+          metrics: [
+            { label: "Residual:", value: "Elevated", highlight: true },
+            { label: "Subsystem:", value: sub.toUpperCase() },
+          ],
+        },
+      ];
+      graphEdges = [];
+      propagationEvents = (faultDef.effects || []).map((eff, i) => ({
+        id: `e${i + 1}`,
+        time: formatTimeOffset(-30 + i * 15),
+        title: eff,
+        desc: `Subsystem ${sub} observed variance across telemetry channels`,
+        nodeId: sub,
+        dotColor: i === 0 ? "orange" : "red",
+      }));
+      evidenceList = faultDef.effects || ["Telemetry excursion observed along subsystem causal DAG"];
+    }
 
     const explanation = {
+      title: `Why ${faultDef.subsystem?.toUpperCase() || 'Root Subsystem'}?`,
       headline: `Probable ${faultDef.label} (${faultDef.subsystem || "power"} subsystem).`,
-      evidence: `${topChannel} is 22% deviating from forecast; secondary thermal gradient emerged 45s later.`,
-      causeConfidence: `${faultDef.label}, about ${Math.round((activeFault?.severity || 0.22) * 100)}% severity, confidence 87%.`,
-      action:
-        faultDef.fmea?.rankedActions[0]?.action ||
-        "Inspect subsystem telemetry.",
+      text: `${faultDef.effects[0]}. Secondary telemetry responses confirmed along the causal dependency DAG.`,
+      evidence: `${faultDef.effects[0]}; downstream gradient emerged shortly after.`,
+      causeConfidence: `${faultDef.label}, about ${Math.round((activeFault?.severity || 0.65) * 100)}% severity, confidence ${(topPosterior * 100).toFixed(0)}%.`,
+      action: faultDef.fmea?.rankedActions[0]?.action || "Inspect subsystem telemetry.",
     };
 
     return {
       id: incidentId,
+      _id: incidentId,
+      incidentId,
       sessionId: this.sessionId,
       status: "open",
       severity: "critical",
       risk: "high",
+      type: faultType,
+      title: faultDef.label || "Telemetry Anomaly",
       openedAtSim: t,
       openedAtTs: new Date().toISOString(),
+      detectedTime: formatTimeOffset(0),
+      detectedDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
       classification,
-      onset: {
-        simTime: activeFault?.startSimTime || t,
-        order: [
-          { channel: topChannel, t: activeFault?.startSimTime || t, z: -4.2 },
-          { channel: "battery_soc", t: t + 15, z: -2.8 },
-          { channel: "battery_temp", t: t + 35, z: 3.1 },
-        ],
-      },
       rankedCauses,
+      graph: {
+        nodes: graphNodes,
+        edges: graphEdges,
+      },
+      propagation: {
+        events: propagationEvents,
+      },
+      evidence: evidenceList,
       confidence: {
-        value: 0.87,
-        previous: 0.94,
+        value: topPosterior,
+        previous: parseFloat((Math.min(0.96, topPosterior + 0.05)).toFixed(2)),
+        was: `${Math.round(Math.min(0.96, topPosterior + 0.05) * 100)}%`,
         components: {
-          posteriorTop1: 0.87,
-          dataQualityFactor: 0.98,
+          posteriorTop1: topPosterior,
+          dataQualityFactor: parseFloat((1.0 - (this.stress.missingPct / 100) * 0.4).toFixed(2)),
           detectorAgreement: 1.0,
         },
-        reason: "High confidence fit across 3 linked physical channels.",
+        reason: `High confidence fit on ${rankedCauses[0].target} and causal propagation across linked DAG nodes.`,
       },
       affectedSubsystems: [
         { subsystem: faultDef.subsystem || "power", role: "source" },
         { subsystem: "thermal", role: "affected" },
         { subsystem: "attitude", role: "not_affected" },
       ],
-      propagation: [
-        {
-          t: activeFault?.startSimTime || t,
-          channel: topChannel,
-          event: "Output dropped below predicted baseline",
-        },
-        {
-          t: t + 15,
-          channel: "battery_soc",
-          event: "Battery charging rate decreased",
-        },
-        {
-          t: t + 35,
-          channel: "battery_temp",
-          event: "Temperature rise detected",
-        },
-      ],
-      contributions,
       explanation,
       recommendations: faultDef.fmea?.rankedActions || [],
-      timeToLimit: {
-        channel: "battery_temp",
-        limit: 45,
-        etaSec: 1850,
-        basis: "twin_forecast",
-      },
       detection: {
         gruFlag: true,
         iforestFlag: true,
@@ -628,17 +1240,11 @@ class MockSimulator {
         leadTimeSec: 650,
       },
       mode: "full",
-      diagnosisState: {
-        stage: "refined",
-        fitsCompleted: 3,
-        evidenceWindowSec: 120,
-        heuristicOnly: false,
-      },
-      groundTruth: null,
       history: [
         {
           action: "created",
           note: "Incident automatically opened upon conformal persistence threshold trigger",
+          timestamp: new Date(),
         },
       ],
       notes: [],

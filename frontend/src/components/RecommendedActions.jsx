@@ -23,7 +23,8 @@ const DEFAULT_ACTIONS = [
 ];
 
 export default function RecommendedActions({ actions = [] }) {
-  const displayActions = actions.length > 0 ? actions : DEFAULT_ACTIONS;
+  const isInconclusive = Array.isArray(actions) && actions.length === 0;
+  const displayActions = isInconclusive ? [] : (actions.length > 0 ? actions : DEFAULT_ACTIONS);
 
   return (
     <div className="card recommended-actions-card">
@@ -33,21 +34,40 @@ export default function RecommendedActions({ actions = [] }) {
         </h2>
       </div>
 
-      <div className="actions-list">
-        {displayActions.map((act, idx) => {
-          const num = act.number || act.rank || idx + 1;
-          return (
-            <div key={act.id || idx} className="action-card-item">
-              <div className="action-number-badge">{num}</div>
-              <div className="action-info">
-                <h4 className="action-title">{act.title || act.action}</h4>
-                <p className="action-desc">{act.description || act.rationale}</p>
-              </div>
-              <ChevronRight size={16} className="action-arrow" />
+      {displayActions.length === 0 ? (
+        <div className="actions-list">
+          <div className="action-card-item">
+            <div className="action-number-badge">1</div>
+            <div className="action-info">
+              <h4 className="action-title">Monitor Real-time Telemetry Stream</h4>
+              <p className="action-desc">Inspect multi-channel telemetry trends and verify sensor transducer stability.</p>
             </div>
-          );
-        })}
-      </div>
+          </div>
+          <div className="action-card-item">
+            <div className="action-number-badge">2</div>
+            <div className="action-info">
+              <h4 className="action-title">Check Redundant Transducers</h4>
+              <p className="action-desc">Compare readings across analytical redundancy channels to rule out isolated transducer noise.</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="actions-list">
+          {displayActions.map((act, idx) => {
+            const num = act.number || act.rank || idx + 1;
+            return (
+              <div key={act.id || idx} className="action-card-item">
+                <div className="action-number-badge">{num}</div>
+                <div className="action-info">
+                  <h4 className="action-title">{act.title || act.action}</h4>
+                  <p className="action-desc">{act.description || act.rationale}</p>
+                </div>
+                <ChevronRight size={16} className="action-arrow" />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

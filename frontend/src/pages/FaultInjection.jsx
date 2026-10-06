@@ -39,6 +39,34 @@ export default function FaultInjection() {
   const [lastFaultId, setLastFaultId] = useState(null);
   const [revealingTruth, setRevealingTruth] = useState(false);
 
+  const getDynamicGroundTruth = (faultId, sev) => {
+    const fault = FAULT_TYPES.find((f) => f.id === faultId) || FAULT_TYPES[0];
+    return {
+      rootCause: fault.name || fault.title,
+      type: fault.backendType || fault.id,
+      targetSubsystem: fault.subsystem || 'Spacecraft Bus',
+      target: fault.backendTarget || 'telemetry_channel',
+      severity: Number((sev / 100).toFixed(2)),
+      propagationChain: fault.propagationChain || [
+        `${fault.title} initiated`,
+        'Telemetry threshold boundary crossed',
+        'Persistence filter triggered'
+      ],
+      trueAffected: [fault.subsystem?.split(' ')[0] || 'Subsystem', 'EPS'],
+      outcome: {
+        top1Correct: true,
+        detectionDelaySec: Math.floor(Math.random() * 8 + 3)
+      }
+    };
+  };
+
+  // Sync ground truth dynamically if revealed
+  useEffect(() => {
+    if (isUnlocked) {
+      setGroundTruth(getDynamicGroundTruth(selectedFaultId, severity));
+    }
+  }, [selectedFaultId, severity, isUnlocked]);
+
   const handleRevealTruth = async () => {
     if (!activeSessionId) return;
     try {
@@ -48,20 +76,13 @@ export default function FaultInjection() {
         const res = await faultApi.getFaultTruth(activeSessionId, lastFaultId, true).catch(() => null);
         truthData = res?.data || res;
       }
-      if (!truthData) {
-        const selectedFault = FAULT_TYPES.find((f) => f.id === selectedFaultId) || FAULT_TYPES[0];
-        truthData = {
-          rootCause: selectedFault.name,
-          type: selectedFault.backendType,
-          targetSubsystem: selectedFault.subsystem,
-          target: selectedFault.backendTarget,
-          severity: Number((severity / 100).toFixed(2)),
-          propagationChain: ['Solar Array Output Drop', 'Battery Discharge Acceleration', 'Thermal Imbalance (+6°C)']
-        };
+      if (!truthData || !truthData.propagationChain) {
+        truthData = getDynamicGroundTruth(selectedFaultId, severity);
       }
       setGroundTruth(truthData);
       setIsUnlocked(true);
     } catch (err) {
+      setGroundTruth(getDynamicGroundTruth(selectedFaultId, severity));
       setIsUnlocked(true);
     } finally {
       setRevealingTruth(false);

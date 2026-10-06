@@ -70,6 +70,11 @@ const IncidentSchema = new mongoose.Schema(
       reason: { type: String },
     },
 
+    title: { type: String },
+    type: { type: String },
+    detectedTime: { type: String },
+    detectedDate: { type: String },
+
     affectedSubsystems: [
       {
         subsystem: { type: String },
@@ -77,13 +82,8 @@ const IncidentSchema = new mongoose.Schema(
       },
     ],
 
-    propagation: [
-      {
-        t: { type: Number },
-        channel: { type: String },
-        event: { type: String },
-      },
-    ],
+    propagation: { type: mongoose.Schema.Types.Mixed },
+    graph: { type: mongoose.Schema.Types.Mixed },
 
     contributions: [
       {
@@ -96,26 +96,10 @@ const IncidentSchema = new mongoose.Schema(
       },
     ],
 
-    explanation: {
-      headline: { type: String },
-      evidence: { type: String },
-      causeConfidence: { type: String },
-      action: { type: String },
-    },
+    explanation: { type: mongoose.Schema.Types.Mixed },
+    evidence: [{ type: String }],
 
-    recommendations: [
-      {
-        rank: { type: Number },
-        action: { type: String },
-        rationale: { type: String },
-        safetyChecks: [
-          {
-            rule: { type: String },
-            passed: { type: Boolean },
-          },
-        ],
-      },
-    ],
+    recommendations: { type: mongoose.Schema.Types.Mixed },
 
     timeToLimit: {
       channel: { type: String },
@@ -153,6 +137,7 @@ const IncidentSchema = new mongoose.Schema(
   {
     _id: false,
     timestamps: true,
+    strict: false,
   },
 );
 

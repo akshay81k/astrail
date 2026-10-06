@@ -12,6 +12,24 @@ const { AppError } = require("../middleware/errorHandler");
 // In-memory sessions cache for ultra-fast lookup and when DB is offline
 const memorySessions = new Map();
 const memoryFaults = new Map();
+function normalizeFaultType(rawType) {
+  if (!rawType) return null;
+  const t = rawType.toLowerCase();
+  if (t === "wheel_friction" || t === "reaction_wheel_friction" || t === "reaction_wheel_stiction" || t.includes("wheel")) return "wheel_friction";
+  if (t === "heater_stuck_on" || t === "heater_relay_failure" || t.includes("heater")) return "heater_stuck_on";
+  if (t === "battery_degradation" || t === "battery_cell_degradation" || t.includes("battery")) return "battery_degradation";
+  if (t === "solar_degradation" || t === "solar_array_degradation" || t.includes("solar")) return "solar_degradation";
+  if (t === "sensor_spike" || t === "sensor_bias" || t.includes("spike")) return "sensor_spike";
+  if (t === "sensor_drift" || t.includes("drift")) return "sensor_drift";
+  if (t === "sensor_stuck" || t.includes("stuck")) return "sensor_stuck";
+  if (t === "thermal_runaway" || t.includes("runaway")) return "thermal_runaway";
+  if (t === "radiator_degradation" || t.includes("radiator")) return "radiator_degradation";
+  if (t === "communication_degradation" || t.includes("comm")) return "communication_degradation";
+  if (t === "radiation_upset" || t.includes("radiation")) return "radiation_upset";
+  if (t === "payload_overload" || t.includes("payload")) return "payload_overload";
+  if (t === "power_bus_instability" || t.includes("power_bus") || t.includes("instability")) return "power_bus_instability";
+  return t;
+}
 
 class SessionService {
   async createSession(payload) {
@@ -447,15 +465,45 @@ class SessionService {
       );
     }
 
-    const faultDef =
-      faultCatalog.find((f) => f.type === fault.type) || faultCatalog[0];
+    const normalizedType = normalizeFaultType(fault.type);
+    const faultDef = faultCatalog.find((f) => f.type === normalizedType || f.type === fault.type);
+    if (!faultDef) {
+      return {
+        faultId: fault.id || fault._id,
+        rootCause: fault.name || fault.type?.replace(/_/g, ' ') || "Inconclusive Anomaly",
+        type: fault.type,
+        targetSubsystem: "UNKNOWN",
+        target: fault.target || "telemetry_stream",
+        severity: fault.severity,
+        onsetSimTime: fault.startSimTime,
+        trueAffected: [],
+        propagationChain: [
+          'Telemetry residual exceeded baseline',
+          'Root cause inconclusive'
+        ],
+        linkedIncidentId: fault.linkedIncidentId || "inc_000",
+        outcome: fault.truth?.outcome || {
+          top1Correct: false,
+          inTop3: false,
+          severityErrorPct: 0.0,
+          detectionDelaySec: 0,
+        },
+      };
+    }
     return {
       faultId: fault.id || fault._id,
+      rootCause: faultDef.label || fault.name || fault.type?.replace(/_/g, ' '),
       type: fault.type,
-      target: fault.target || "solar_array",
+      targetSubsystem: (faultDef.subsystem || 'power').toUpperCase(),
+      target: fault.target || faultDef.target || "telemetry_channel",
       severity: fault.severity,
       onsetSimTime: fault.startSimTime,
-      trueAffected: [faultDef.subsystem || "power", "thermal"],
+      trueAffected: faultDef.subsystem ? [faultDef.subsystem, "thermal"] : ["power", "thermal"],
+      propagationChain: faultDef.effects || [
+        `${faultDef.label} initiated`,
+        'Telemetry threshold excursion detected',
+        'Persistence threshold confirmed'
+      ],
       linkedIncidentId: fault.linkedIncidentId || "inc_014",
       outcome: fault.truth?.outcome || {
         top1Correct: true,

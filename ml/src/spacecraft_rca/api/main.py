@@ -215,7 +215,7 @@ async def analyze_incident(payload: dict):
     current_readings = payload.get("current_readings", {})
     pred_dict = payload.get("predictions", {})
     
-    rc = rc_engine.analyze_incident(flagged_sensors)
+    rc = rc_engine.analyze_incident(flagged_sensors, current_readings, pred_dict)
     safety = safety_engine.evaluate(flagged_sensors, current_readings)
     explanation = explainer_engine.generate_explanation(
         flagged_sensors, current_readings, pred_dict, rc["root_cause_candidates"]
@@ -223,6 +223,8 @@ async def analyze_incident(payload: dict):
     
     return {
         "root_cause_analysis": rc,
+        "graph": rc.get("graph"),
+        "propagation": rc.get("propagation"),
         "safety_recommendation": safety,
         "explanation": explanation
     }

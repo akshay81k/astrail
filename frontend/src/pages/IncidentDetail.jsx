@@ -12,53 +12,7 @@ import EvidenceList from "../components/EvidenceList";
 import RecommendedActions from "../components/RecommendedActions";
 import IncidentActions from "../components/IncidentActions";
 
-const FALLBACK_INCIDENT_014 = {
-  id: "014",
-  severity: "CRITICAL",
-  title: "Thermal anomaly detected",
-  detectedTime: "02:09:40",
-  detectedDate: "Oct 05, 2026",
-  confidence: {
-    value: 0.82,
-    was: "92%",
-    reason: "Sensor 3 delayed for 40 seconds",
-  },
-  duration: "14m 36s",
-  statusNote: "(Ongoing)",
-  explanation: {
-    title: "Why Solar Array?",
-    text: "Solar current fell 18% below forecast at 02:09:40, then battery charge dropped 35 seconds later and battery temperature rose 6°C at 02:11:08. The solar array deviated first and the dependency graph links it to both downstream signals.",
-  },
-  evidence: [
-    "Solar current deviated first (02:09:40)",
-    "Battery charge responded after 35 s",
-    "Thermal response followed (02:11:08)",
-    "Dependency graph supports causal direction",
-  ],
-  recommendations: [
-    {
-      id: 1,
-      number: 1,
-      title: "Reduce non-essential load",
-      description:
-        "Lower payload and auxiliary systems load to reduce power demand.",
-    },
-    {
-      id: 2,
-      number: 2,
-      title: "Check heater status",
-      description:
-        "Verify heater control signals and switch to redundant heater if available.",
-    },
-    {
-      id: 3,
-      number: 3,
-      title: "Enter safe mode if it persists > 10 min",
-      description:
-        "If temperature continues to rise, enter safe mode to prevent further damage.",
-    },
-  ],
-};
+
 
 export default function IncidentDetail() {
   const { incidentId } = useParams();
@@ -78,9 +32,8 @@ export default function IncidentDetail() {
         setIncident(data);
         setError(null);
       } catch (err) {
-        // Fallback to default incident details if endpoint returns empty/404 for mock demo
-        setIncident({ ...FALLBACK_INCIDENT_014, id: incidentId || "014" });
-        setError(null);
+        setError(err.message || "Failed to load incident details");
+        setIncident(null);
       } finally {
         setLoading(false);
       }
@@ -94,13 +47,13 @@ export default function IncidentDetail() {
 
   const handleEventSelect = (eventId) => {
     setSelectedEventId(eventId);
-    if (eventId === "e1") setSelectedNodeId("solar");
-    if (eventId === "e2") setSelectedNodeId("battery");
-    if (eventId === "e3") setSelectedNodeId("thermal");
-    if (eventId === "e4") setSelectedNodeId("solar");
+    if (incident?.propagation?.events) {
+      const match = incident.propagation.events.find(e => e.id === eventId);
+      if (match?.nodeId) setSelectedNodeId(match.nodeId);
+    }
   };
 
-  const activeIncident = incident || FALLBACK_INCIDENT_014;
+  const activeIncident = incident;
 
   return (
     <div className="app-container">
@@ -111,6 +64,14 @@ export default function IncidentDetail() {
             <div className="loading-skeleton-box">
               <div className="skeleton-line title"></div>
               <div className="skeleton-grid"></div>
+            </div>
+          ) : error || !activeIncident ? (
+            <div className="card" style={{ padding: "40px", textAlign: "center", margin: "40px auto", maxWidth: "600px" }}>
+              <h2 style={{ color: "#ef4444", marginBottom: "12px" }}>Incident Not Found</h2>
+              <p style={{ color: "#94a3b8", marginBottom: "20px" }}>The requested incident ID (#{incidentId}) is not active or has been resolved.</p>
+              <button className="btn-primary" onClick={() => navigate('/incidents')} style={{ padding: "8px 16px" }}>
+                Return to Incidents List
+              </button>
             </div>
           ) : (
             <>
@@ -128,7 +89,7 @@ export default function IncidentDetail() {
 
                 <div className="timeline-col">
                   <PropagationTimeline
-                    events={activeIncident.propagation?.events}
+                    events={activeIncident.propagation}
                     selectedEventId={selectedEventId}
                     onEventSelect={handleEventSelect}
                   />
@@ -136,7 +97,7 @@ export default function IncidentDetail() {
                   <RankedCauses
                     causes={activeIncident.rankedCauses}
                     onCauseSelect={(cause) =>
-                      handleNodeSelect(cause.nodeId || "solar")
+                      handleNodeSelect(cause.nodeId || "source")
                     }
                   />
                 </div>
@@ -146,6 +107,7 @@ export default function IncidentDetail() {
                 <div className="explanation-evidence-col">
                   <IncidentExplanation
                     explanation={activeIncident.explanation}
+                    rootCause={activeIncident.root_cause_analysis}
                   />
                   <EvidenceList evidence={activeIncident.evidence} />
                 </div>

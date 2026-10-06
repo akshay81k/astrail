@@ -37,19 +37,19 @@ export default function GroundTruthPanel({ groundTruth, isUnlocked = false, onRe
             <strong>True Root Cause:</strong> <span>{groundTruth.rootCause || groundTruth.type?.replace(/_/g, ' ') || 'Solar Array Degradation'}</span>
           </div>
           <div className="truth-row">
-            <strong>Target Subsystem:</strong> <span>{groundTruth.targetSubsystem || groundTruth.target || 'Power'}</span>
+            <strong>Target Subsystem:</strong> <span>{groundTruth.targetSubsystem || 'Power'} {groundTruth.target ? `(${groundTruth.target})` : ''}</span>
           </div>
           <div className="truth-row">
             <strong>Injected Severity:</strong> <span>{Math.round((groundTruth.severity || 0.6) * 100)}%</span>
           </div>
-          {groundTruth.trueAffected && (
+          {groundTruth.trueAffected && groundTruth.trueAffected.length > 0 && (
             <div className="truth-row">
               <strong>Affected Subsystems:</strong> <span>{groundTruth.trueAffected.join(', ')}</span>
             </div>
           )}
           {groundTruth.propagationChain && (
             <div className="truth-row">
-              <strong>Propagation:</strong> <span>{groundTruth.propagationChain.join(' → ')}</span>
+              <strong>Propagation:</strong> <span>{Array.isArray(groundTruth.propagationChain) ? groundTruth.propagationChain.join(' → ') : groundTruth.propagationChain}</span>
             </div>
           )}
           {groundTruth.outcome && (

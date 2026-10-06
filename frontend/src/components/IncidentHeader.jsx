@@ -1,20 +1,35 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTelemetry } from '../context/TelemetryContext';
 import { AlertTriangle, Clock, Activity, ArrowLeft, Info } from 'lucide-react';
 
 export default function IncidentHeader({ incident }) {
   const navigate = useNavigate();
+  const { missionTimeSec } = useTelemetry();
 
   const id = incident?.id || incident?.incidentId || '014';
   const displayId = id.toString().startsWith('#') ? id : `#${id}`;
-  const severity = incident?.severity || incident?.status?.toUpperCase() || 'CRITICAL';
-  const title = incident?.title || incident?.explanation?.headline || 'Thermal anomaly detected';
-  const detectedTime = incident?.detectedTime || incident?.openedAtTs || '02:09:40';
-  const detectedDate = incident?.detectedDate || 'Oct 05, 2026';
-  const confidence = incident?.confidence?.value ? `${Math.round(incident.confidence.value * 100)}%` : (incident?.confidence || '82%');
-  const wasConfidence = incident?.confidence?.was || incident?.confidence?.previous || '92%';
-  const duration = incident?.duration || '14m 36s';
-  const statusNote = incident?.statusNote || '(Ongoing)';
+  const severity = (incident?.severity || incident?.status || 'CRITICAL').toUpperCase();
+  const title = incident?.title || incident?.headline || incident?.explanation?.headline || 'Spacecraft Telemetry Anomaly';
+  const detectedTime = incident?.detectedTime || incident?.openedAt || (incident?.openedAtSim !== undefined ? `02:${String(Math.floor((incident.openedAtSim + 480) / 60)).padStart(2, '0')}:${String((incident.openedAtSim + 480) % 60).padStart(2, '0')}` : '02:08:45');
+  const detectedDate = incident?.detectedDate || new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  
+  const rawConf = incident?.confidence?.value ?? incident?.confidence?.score ?? 0.88;
+  const confidence = `${Math.round(rawConf * 100)}%`;
+  const rawPrev = incident?.confidence?.previous ?? incident?.confidence?.was ?? Math.min(0.96, rawConf + 0.05);
+  const wasConfidence = typeof rawPrev === 'number' ? `${Math.round(rawPrev * 100)}%` : rawPrev;
+  
+  // Calculate dynamic ongoing duration
+  let duration = incident?.duration;
+  if (!duration) {
+    const startSim = incident?.openedAtSim || 0;
+    const currentSim = missionTimeSec || startSim + 65;
+    const diffSec = Math.max(5, currentSim - startSim);
+    const m = Math.floor(diffSec / 60);
+    const s = Math.floor(diffSec % 60);
+    duration = m > 0 ? `${m}m ${s}s` : `${s}s`;
+  }
+  const statusNote = incident?.status === 'closed' ? '(Resolved)' : '(Ongoing)';
 
   return (
     <div className="incident-header-card">

@@ -9,19 +9,26 @@ const DEFAULT_EVIDENCE = [
 ];
 
 export default function EvidenceList({ evidence = [] }) {
-  const items = evidence.length > 0 ? evidence : DEFAULT_EVIDENCE;
+  const isInconclusive = Array.isArray(evidence) && evidence.length === 0;
+  const items = isInconclusive ? [] : (evidence.length > 0 ? evidence : DEFAULT_EVIDENCE);
 
   return (
     <div className="evidence-container">
       <h4 className="evidence-heading">Key Evidence</h4>
-      <ul className="evidence-list">
-        {items.map((item, idx) => (
-          <li key={idx} className="evidence-item">
-            <CheckCircle2 size={16} className="evidence-check-icon" />
-            <span className="evidence-text">{typeof item === 'string' ? item : item.text || item.label}</span>
-          </li>
-        ))}
-      </ul>
+      {items.length === 0 ? (
+        <div style={{ color: "#94a3b8", fontSize: "0.85rem", padding: "8px 0" }}>
+          Cross-channel statistical residual was elevated without clear subsystem DAG localization.
+        </div>
+      ) : (
+        <ul className="evidence-list">
+          {items.map((item, idx) => (
+            <li key={idx} className="evidence-item">
+              <CheckCircle2 size={16} className="evidence-check-icon" />
+              <span className="evidence-text">{typeof item === 'string' ? item : item.text || item.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
