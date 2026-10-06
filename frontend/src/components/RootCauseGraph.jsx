@@ -108,6 +108,42 @@ const DEFAULT_EDGES = [
   { source: "battery", target: "wheel", label: "Not affected", type: "gray" },
 ];
 
+function layoutNodes(nodes) {
+  if (!nodes || nodes.length === 0) return [];
+  const layoutPresets = [
+    [{ x: 230, y: 150 }],
+    [{ x: 130, y: 150 }, { x: 370, y: 150 }],
+    [{ x: 230, y: 30 }, { x: 90, y: 220 }, { x: 370, y: 220 }],
+    [{ x: 230, y: 30 }, { x: 70, y: 180 }, { x: 390, y: 180 }, { x: 230, y: 330 }],
+    [{ x: 230, y: 30 }, { x: 70, y: 150 }, { x: 390, y: 150 }, { x: 120, y: 320 }, { x: 340, y: 320 }],
+    [{ x: 120, y: 30 }, { x: 340, y: 30 }, { x: 60, y: 180 }, { x: 400, y: 180 }, { x: 120, y: 330 }, { x: 340, y: 330 }]
+  ];
+  const preset = layoutPresets[Math.min(nodes.length, layoutPresets.length) - 1] || [];
+
+  return nodes.map((node, i) => {
+    const coords = (node.x != null && node.y != null)
+      ? { x: node.x, y: node.y }
+      : (preset[i] || { x: 60 + (i % 3) * 160, y: 40 + Math.floor(i / 3) * 180 });
+
+    const isSource = node.status === 'SOURCE' || node.statusType === 'source' || node.state === 'anomaly' || (node.score && node.score > 0.5);
+    const isAffected = node.status === 'AFFECTED' || node.statusType === 'affected' || (node.score && node.score > 0.1 && !isSource);
+    const statusType = isSource ? 'source' : isAffected ? 'affected' : 'normal';
+    const status = isSource ? 'SOURCE' : isAffected ? 'AFFECTED' : 'NORMAL';
+
+    return {
+      ...node,
+      x: coords.x,
+      y: coords.y,
+      statusType,
+      status,
+      metrics: node.metrics || [
+        { label: 'Score:', value: node.score != null ? `${(node.score * 100).toFixed(0)}%` : 'N/A', highlight: isSource },
+        { label: 'Status:', value: status }
+      ]
+    };
+  });
+}
+
 export default function RootCauseGraph({
   nodes: customNodes,
   edges: customEdges,
@@ -118,7 +154,7 @@ export default function RootCauseGraph({
 
   const [nodePositions, setNodePositions] = useState(() => {
     if (customNodes && customNodes.length > 0) {
-      return customNodes;
+      return layoutNodes(customNodes);
     }
     if (isInconclusive) return [];
     return DEFAULT_NODES;
@@ -126,7 +162,7 @@ export default function RootCauseGraph({
 
   useEffect(() => {
     if (customNodes && customNodes.length > 0) {
-      setNodePositions(customNodes);
+      setNodePositions(layoutNodes(customNodes));
     } else if (Array.isArray(customNodes) && customNodes.length === 0) {
       setNodePositions([]);
     } else {
@@ -289,11 +325,17 @@ export default function RootCauseGraph({
 
             {/* Dynamic Edge Rendering */}
             {edges.map((edge, idx) => {
-              const sNode = nodePositions.find((n) => n.id === edge.source);
-              const tNode = nodePositions.find((n) => n.id === edge.target);
+              const sId = edge.source || edge.from;
+              const tId = edge.target || edge.to;
+              const sNode = nodePositions.find(
+                (n) => n.id === sId || String(n.id).toLowerCase() === String(sId).toLowerCase()
+              );
+              const tNode = nodePositions.find(
+                (n) => n.id === tId || String(n.id).toLowerCase() === String(tId).toLowerCase()
+              );
               if (!sNode || !tNode) return null;
 
-              const isRed = edge.type === "red";
+              const isRed = edge.type === "red" || sNode.statusType === "source" || sNode.status === "SOURCE";
               const x1 = sNode.x + 100;
               const y1 = sNode.y + 110;
               const x2 = tNode.x + 100;
