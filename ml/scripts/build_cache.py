@@ -78,19 +78,44 @@ try:
             preds.append(gru(X_w[i:i+512]))
     preds = torch.cat(preds, dim=0)
     
-    residuals = torch.abs(preds - y_targ).numpy()
+    residuals_raw = torch.abs(preds - y_targ).numpy()
     
-    # We need cal_p99 from the calibration split to normalize scores
-    # Actually, we can just save raw residuals, but instructions said "save normalized residuals, scores and masks"
-    # Let's save residuals for now
+    # Calculate s_c: P99 of each channel on calibration residuals
+    CAL_OFFSET = 32
+    cal_idx = np.array(splits['calibration'])
+    cal_idx_adj = cal_idx[cal_idx >= CAL_OFFSET] - CAL_OFFSET
+    cal_idx_adj = cal_idx_adj[cal_idx_adj < len(residuals_raw)]
     
-    print(f"Residuals shape: {residuals.shape}")
-    nan_count = np.isnan(residuals).sum()
-    print(f"NaN count in residuals: {nan_count}")
+    s_c = np.percentile(residuals_raw[cal_idx_adj], 99.0, axis=0)
+    s_c = np.where(s_c < 1e-6, 1e-6, s_c)
     
-    np.save(cache_dir / "residuals.npy", residuals)
-    print("Successfully dumped artifacts/cache/residuals.npy")
+    residuals_norm = residuals_raw / s_c
     
+    cal_mean_score = float(residuals_norm[cal_idx_adj].mean())
+    print(f"Calibration mean normalized score: {cal_mean_score:.4f}")
+    assert cal_mean_score <= 3.0, f"[BAD] Calibration mean score > 3: {cal_mean_score}"
+    
+    # Save normalized residuals
+    np.save(cache_dir / "residuals_norm.npy", residuals_norm)
+    np.save(cache_dir / "s_c.npy", s_c)
+    
+    score_max = residuals_norm.max(axis=1)
+    np.save(cache_dir / "score_max_per_row.npy", score_max)
+    
+    # Smooth EWMA
+    score_smooth = np.empty_like(score_max)
+    score_smooth[0] = score_max[0]
+    for i in range(1, len(score_max)):
+        score_smooth[i] = 0.3 * score_max[i] + 0.7 * score_smooth[i-1]
+    np.save(cache_dir / "score_smooth_all.npy", score_smooth)
+    
+    # Delete or rename unscaled file
+    unscaled_file = cache_dir / "residuals.npy"
+    if unscaled_file.exists():
+        unscaled_file.unlink()
+        print("Removed unscaled residuals.npy")
+        
+    print(f"Saved artifacts/cache/residuals_norm.npy (shape: {residuals_norm.shape})")
     print("PHASE 1 GATE: PASS")
 except Exception as e:
     import traceback
