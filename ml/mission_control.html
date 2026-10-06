@@ -417,6 +417,54 @@
             font-weight: 600;
             color: var(--danger);
         }
+        .alert-evidence-box {
+            margin-top: 8px;
+            padding: 8px 10px;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.73rem;
+        }
+        .evidence-title {
+            font-weight: 800;
+            font-size: 0.67rem;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+        .evidence-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+        .ev-label {
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .ev-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.71rem;
+            color: var(--text-main);
+            text-align: right;
+        }
+        .ev-val.highlight {
+            font-weight: 700;
+            color: var(--danger);
+        }
+        .ev-pill {
+            display: inline-block;
+            padding: 1px 5px;
+            background: var(--slate-light);
+            border-radius: 3px;
+            font-size: 0.65rem;
+            margin-left: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
 
         /* 23 Sensor Grid */
         .sensors-container {
@@ -1230,6 +1278,33 @@
 
             const faultType = inc.fault_classification || rc.subsystem;
 
+            // Extract Evidence JSON
+            const ev = inc.evidence || {};
+            const onsetList = (ev.onset_order || inc.flagged_sensors || []).slice(0, 4);
+            const onsetPills = onsetList.map(s => `<span class="ev-pill">${s}</span>`).join(' ') || "None";
+            
+            const sigmas = ev.per_channel_sigma || {};
+            const sigmasEntries = Object.entries(sigmas).slice(0, 3);
+            const sigmasText = sigmasEntries.length > 0 ? sigmasEntries.map(([k, v]) => `${k.substring(0, 12)}: ${v}σ`).join(', ') : "Nominal limits";
+            
+            // Runner-up comparison
+            const primarySub = rc.subsystem;
+            const primaryConf = rc.confidence_score;
+            const ru = ev.runner_up || ((inc.root_cause_analysis && inc.root_cause_analysis.root_cause_candidates && inc.root_cause_analysis.root_cause_candidates[1]) ? inc.root_cause_analysis.root_cause_candidates[1] : { subsystem: "NONE", confidence_score: 0.0, delta_score: primaryConf });
+            const ruSub = ru.subsystem || "NONE";
+            const ruConf = ru.confidence_score !== undefined ? ru.confidence_score : 0.0;
+            const ruDelta = ru.delta_score !== undefined ? ru.delta_score : Math.max(0, primaryConf - ruConf).toFixed(1);
+            
+            // Time-to-limit
+            const ttl = ev.time_to_limit || {};
+            let ttlText = "not available";
+            if (ttl.status === "PROJECTED" && ttl.median_rows !== null && ttl.median_rows !== undefined) {
+                const r80 = (ttl.range_80 && ttl.range_80.length === 2) ? ` [80% CI: ${ttl.range_80[0]} - ${ttl.range_80[1]}]` : "";
+                ttlText = `${ttl.median_rows} rows${r80}`;
+            } else if (ttl.status === "no crossing projected") {
+                ttlText = "not available (no crossing projected)";
+            }
+
             // Prepend Critical Card to Alerts Feed
             const card = document.createElement('div');
             card.className = 'alert-card critical';
@@ -1244,6 +1319,27 @@
                 <div class="alert-card-explanation">
                     ${inc.explanation || "Residual deviation exceeds operational limits across correlated telemetry channels."}
                 </div>
+                
+                <div class="alert-evidence-box">
+                    <div class="evidence-title">Diagnostic Attribution &amp; Evidence</div>
+                    <div class="evidence-row">
+                        <span class="ev-label">Onset Order:</span>
+                        <span class="ev-val">${onsetPills}</span>
+                    </div>
+                    <div class="evidence-row">
+                        <span class="ev-label">Channel Sigmas:</span>
+                        <span class="ev-val">${sigmasText}</span>
+                    </div>
+                    <div class="evidence-row">
+                        <span class="ev-label">Runner-Up Comparison:</span>
+                        <span class="ev-val"><strong>${primarySub}</strong> (${primaryConf}%) vs <strong>${ruSub}</strong> (${ruConf}%, Δ${ruDelta}%)</span>
+                    </div>
+                    <div class="evidence-row">
+                        <span class="ev-label">Time-to-Limit:</span>
+                        <span class="ev-val ${ttl.status === 'PROJECTED' ? 'highlight' : ''}">${ttlText}</span>
+                    </div>
+                </div>
+
                 <div class="alert-card-action">
                     Recommended Action: ${action}
                 </div>

@@ -1,0 +1,11 @@
+fault_id,signal,alert_rel,true_cross_rel,proj_cross_rel,err_rows,in_80_range,range_80,true_lead_rows,err_larger_than_lead
+INJ_DRIFT_000,comm_rx_dbm,158,442,324.6,117.4,True,"[np.float64(290.7), np.float64(515.4)]",284,False
+INJ_DRIFT_007,memory_utilization_pct,129,471,460.8,10.2,True,"[np.float64(373.5), np.float64(616.3)]",342,False
+INJ_DRIFT_011,solar_array_current_A,104,297,126.0,171.0,False,"[np.float64(124.8), np.float64(127.8)]",193,False
+INJ_DRIFT_013,payload_power_W,143,443,173.5,269.5,False,"[np.float64(171.5), np.float64(177.5)]",300,False
+INJ_DRIFT_014,gyro_z_deg_s,112,395,186.2,208.8,False,"[np.float64(162.7), np.float64(244.9)]",283,False
+INJ_DRIFT_016,comm_rx_dbm,158,656,417.3,238.7,True,"[np.float64(287.5), np.float64(1809.9)]",498,False
+INJ_DRIFT_020,memory_utilization_pct,148,843,398.0,445.0,True,"[np.float64(306.5), np.float64(1479.2)]",695,False
+INJ_DRIFT_025,reaction_wheel_speed_rpm,151,737,290.1,446.9,False,"[np.float64(256.6), np.float64(346.3)]",586,False
+INJ_DRIFT_026,gyro_z_deg_s,122,445,234.2,210.8,False,"[np.float64(194.6), np.float64(431.6)]",323,False
+INJ_DRIFT_028,eps_temperature_C,101,315,442.5,127.5,False,"[np.float64(395.3), np.float64(538.3)]",214,False
